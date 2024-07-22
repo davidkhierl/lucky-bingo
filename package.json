@@ -1,11 +1,23 @@
 {
-  "name": "lucky-bingo",
-  "module": "src/index.ts",
-  "type": "module",
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5.0.0"
-  }
+    "name": "lucky-bingo",
+    "module": "src/index.ts",
+    "type": "module",
+    "scripts": {
+        "dev": "bun --watch ./src/index.ts",
+        "debug": "bun --watch --inspect ./src/index.ts"
+    },
+    "devDependencies": {
+        "@types/bun": "latest",
+        "prettier": "^3.3.3",
+        "prettier-plugin-organize-imports": "^4.0.0"
+    },
+    "peerDependencies": {
+        "typescript": "^5.5.3"
+    },
+    "dependencies": {
+        "@faker-js/faker": "^8.4.1",
+        "currency.js": "^2.0.4",
+        "effect": "^3.5.6",
+        "rxjs": "^7.8.1"
+    }
 }
