@@ -1,4 +1,5 @@
 import type { Server as BunServer, ServerWebSocket as BunServerWebSocket } from 'bun'
+import { nanoid } from 'nanoid'
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:events'
 import type { Constructor } from 'type-fest'
@@ -25,9 +26,9 @@ export interface Anonymous {
  */
 export interface WebSocketData<U> {
     /**
-     * Unique identifier for the WebSocket connection.
+     * Unique session ID for the WebSocket connection.
      */
-    id: string
+    sessionId: string
 
     /**
      * Authentication token, if any. Null for anonymous users.
@@ -266,7 +267,7 @@ export class Server<U = never> extends EventEmitter<ServerEventMap<U>> {
 
         return server.upgrade(req, {
             data: {
-                id: randomUUID(),
+                sessionId: nanoid(),
                 token,
                 createdAt: new Date(),
                 user: userOrAnonymous,
