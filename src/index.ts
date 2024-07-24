@@ -1,12 +1,23 @@
-import BingoServer from '@/server/bingo-server.ts'
-import UserManager from '@/user-manager.ts'
+import { Server } from '@gemo'
+import { createUser } from './services/create-user'
 
-const userManager = new UserManager()
+const server = new Server({
+    auth(token) {
+        if (token) return createUser()
+        else return null
+    },
+})
 
-const server = new BingoServer((token) => (token ? userManager.createUser() : userManager.createAnonymousUser()))
+server.listen()
 
-server.start()
+server.on('userMessage', (ws, message) => {
+    console.log('User message', ws.data.user, JSON.parse(typeof message === 'string' ? message : message.toString()))
+})
 
-server.on('connection', (ws) => {
-    console.log('Client connected', ws.data)
+server.on('anonymousMessage', (ws, message) => {
+    console.log(
+        'Anonymous message',
+        ws.data.user,
+        JSON.parse(typeof message === 'string' ? message : message.toString())
+    )
 })
