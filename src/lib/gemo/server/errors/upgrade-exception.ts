@@ -1,4 +1,4 @@
-import type { UpgradeErrorCode } from '@/server/errors/upgrade-error-code.ts'
+import type { UpgradeErrorCode } from '../../'
 
 export abstract class UpgradeException extends Error {
     public readonly code: number
