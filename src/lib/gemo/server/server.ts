@@ -16,6 +16,9 @@ import {
  * Anonymous user connected to the server.
  */
 export interface Anonymous {
+    /**
+     * Unique identifier for the anonymous user.
+     */
     id: string
 }
 
@@ -138,6 +141,7 @@ export class Server<U = never> extends EventEmitter<ServerEventMap<U>> {
     private readonly exceptionFilters = new Map<number, UpgradeException>()
     private readonly allowAnonymous: boolean
     private readonly auth: ((token: string | null) => U | null | Promise<U | null>) | undefined
+    private server?: BunServer
 
     /**
      * Creates a new Server instance with the specified options.
@@ -159,12 +163,12 @@ export class Server<U = never> extends EventEmitter<ServerEventMap<U>> {
     }
 
     /**
-     * Starts the server and listens for incoming WebSocket connections.
+     * Starts the server and listens on the specified port.
      * @param port - The port number to listen on.
-     * @returns A Promise that resolves when the server is ready to accept connections.
+     * @returns The server instance.
      */
     public listen(port = 3000) {
-        return Bun.serve<ServerWebSocketData<U>>({
+        return (this.server = Bun.serve<ServerWebSocketData<U>>({
             port,
             fetch: this.handleUpgradeRequest.bind(this),
             websocket: {
@@ -181,7 +185,7 @@ export class Server<U = never> extends EventEmitter<ServerEventMap<U>> {
                     this.emit('drain', ws)
                 },
             },
-        })
+        }))
     }
 
     /**
@@ -211,6 +215,15 @@ export class Server<U = never> extends EventEmitter<ServerEventMap<U>> {
     }
 
     /**
+     * Gets the Bun server instance.
+     * @returns The Bun server instance.
+     */
+    public getServer(): BunServer {
+        if (!this.server) throw new Error('Server is not started')
+        return this.server
+    }
+
+    /**
      * Parses the token from the given URL.
      * @param url - The URL to parse the token from.
      * @returns The token parsed from the URL, or null if no token is found.
@@ -220,7 +233,7 @@ export class Server<U = never> extends EventEmitter<ServerEventMap<U>> {
     }
 
     /**
-     * Attempts to upgrade the connection to a WebSocket.
+     * Attempts to upgrade the request to a WebSocket connection.
      * @param req - The request object.
      * @param server - The server object.
      * @param token - The authentication token.
