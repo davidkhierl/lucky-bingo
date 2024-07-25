@@ -5,8 +5,6 @@ import { EventEmitter } from 'node:events'
 import type { Constructor } from 'type-fest'
 import {
     InvalidTokenException,
-    isAnonymousSocket,
-    isAuthenticatedSocket,
     UnauthorizedException,
     UnknownErrorException,
     UpgradeErrorCode,
@@ -44,6 +42,11 @@ export interface WebSocketData<U> {
      * User information associated with the WebSocket connection.
      */
     user: U
+
+    /**
+     * Whether the user is anonymous.
+     */
+    isAnonymous: boolean
 }
 
 /**
@@ -54,6 +57,11 @@ export interface UserWebSocketData<U> extends WebSocketData<U> {
      * Authentication token (non-null for authenticated users).
      */
     token: string
+
+    /**
+     * Whether the user is anonymous (always false for authenticated users).
+     */
+    isAnonymous: false
 }
 
 /**
@@ -64,6 +72,11 @@ export interface AnonymousWebSocketData extends WebSocketData<Anonymous> {
      * Token is explicitly null for anonymous users.
      */
     token: null
+
+    /**
+     * Whether the user is anonymous (always true for anonymous users).
+     */
+    isAnonymous: true
 }
 
 /**
@@ -86,29 +99,9 @@ export interface ServerEventMap<U> {
     connection: [ws: ServerWebSocket<U>]
 
     /**
-     * Event triggered on a new WebSocket connection for authenticated users.
-     */
-    user: [ws: BunServerWebSocket<UserWebSocketData<U>>]
-
-    /**
-     * Event triggered on a new WebSocket connection for anonymous users.
-     */
-    anonymous: [ws: BunServerWebSocket<AnonymousWebSocketData>]
-
-    /**
      * Event triggered on WebSocket disconnection.
      */
     close: [ws: ServerWebSocket<U>, code: number, reason: string]
-
-    /**
-     * Event triggered on WebSocket disconnection for authenticated users.
-     */
-    userClose: [ws: BunServerWebSocket<UserWebSocketData<U>>, code: number, reason: string]
-
-    /**
-     * Event triggered on WebSocket disconnection for anonymous users.
-     */
-    anonymousClose: [ws: BunServerWebSocket<AnonymousWebSocketData>, code: number, reason: string]
 
     /**
      * Event triggered on receiving a message from the WebSocket.
@@ -116,29 +109,9 @@ export interface ServerEventMap<U> {
     message: [ws: ServerWebSocket<U>, message: string | Buffer]
 
     /**
-     * Event triggered on receiving a message from an authenticated user.
-     */
-    userMessage: [ws: BunServerWebSocket<UserWebSocketData<U>>, message: string | Buffer]
-
-    /**
-     * Event triggered on receiving a message from an anonymous user.
-     */
-    anonymousMessage: [ws: BunServerWebSocket<AnonymousWebSocketData>, message: string | Buffer]
-
-    /**
      * Event triggered when the WebSocket is ready to send more data after being previously saturated.
      */
     drain: [ws: ServerWebSocket<U>]
-
-    /**
-     * Event triggered when the WebSocket for an authenticated user is ready to send more data after being previously saturated.
-     */
-    userDrain: [ws: BunServerWebSocket<UserWebSocketData<U>>]
-
-    /**
-     * Event triggered when the WebSocket for an anonymous user is ready to send more data after being previously saturated.
-     */
-    anonymousDrain: [ws: BunServerWebSocket<AnonymousWebSocketData>]
 }
 
 /**
@@ -197,23 +170,15 @@ export class Server<U = never> extends EventEmitter<ServerEventMap<U>> {
             websocket: {
                 open: (ws) => {
                     this.emit('connection', ws)
-                    if (isAuthenticatedSocket(ws)) this.emit('user', ws)
-                    else if (isAnonymousSocket(ws)) this.emit('anonymous', ws)
                 },
                 close: (ws, code, reason) => {
                     this.emit('close', ws, code, reason)
-                    if (isAuthenticatedSocket(ws)) this.emit('userClose', ws, code, reason)
-                    else if (isAnonymousSocket(ws)) this.emit('anonymousClose', ws, code, reason)
                 },
                 message: (ws, message) => {
                     this.emit('message', ws, message)
-                    if (isAuthenticatedSocket(ws)) this.emit('userMessage', ws, message)
-                    else if (isAnonymousSocket(ws)) this.emit('anonymousMessage', ws, message)
                 },
                 drain: (ws) => {
                     this.emit('drain', ws)
-                    if (isAuthenticatedSocket(ws)) this.emit('userDrain', ws)
-                    else if (isAnonymousSocket(ws)) this.emit('anonymousDrain', ws)
                 },
             },
         })
@@ -263,15 +228,16 @@ export class Server<U = never> extends EventEmitter<ServerEventMap<U>> {
      * @returns True if the upgrade is successful, otherwise false.
      */
     private attemptUpgrade(req: Request, server: BunServer, token: string | null, user: U | null): boolean {
-        const userOrAnonymous: U | Anonymous = user ?? { id: randomUUID() }
+        const data = {
+            sessionId: nanoid(),
+            token,
+            createdAt: new Date(),
+            user: user ?? { id: randomUUID() },
+            isAnonymous: user === null,
+        } satisfies WebSocketData<U | Anonymous>
 
         return server.upgrade(req, {
-            data: {
-                sessionId: nanoid(),
-                token,
-                createdAt: new Date(),
-                user: userOrAnonymous,
-            },
+            data,
         })
     }
 
