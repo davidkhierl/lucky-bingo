@@ -11,13 +11,3 @@ export interface User {
      */
     name: string
 }
-
-/**
- * Represents an anonymous user with only an ID.
- */
-export interface AnonymousUser {
-    /**
-     * Unique identifier for the anonymous user.
-     */
-    id: string
-}
