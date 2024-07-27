@@ -2,7 +2,7 @@ import { scan, takeWhile, timer } from 'rxjs'
 import { logger, type RoundState } from '..'
 import type { Engine } from './engine'
 
-export interface TimedEngineOptions {
+export interface TimerEngineOptions {
     duration: number
     frequency?: number
     lockAt?: number
@@ -13,7 +13,7 @@ export class TimerEngine<U> implements Engine<U> {
     public readonly frequency: number
     public readonly lockAt: number
 
-    constructor(options: TimedEngineOptions) {
+    constructor(options: TimerEngineOptions) {
         this.duration = options.duration
         this.frequency = options.frequency || 1000
         this.lockAt = options.lockAt || 0
