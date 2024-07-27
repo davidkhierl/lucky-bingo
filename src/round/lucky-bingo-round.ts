@@ -10,7 +10,7 @@ export class LuckyBingoRound extends Round {
     public onLock(): OnLock {
         return
     }
-    public onConclude(): OnConclude {
+    public onConclude(): OnConclude<number> {
         return { result: Math.ceil(Math.random() * 100) }
     }
 }
