@@ -1,7 +1,8 @@
 import type { Server as BunServer } from 'bun'
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:stream'
-import { Commands, Pool, Server, type Data, type ServerWebSocket } from '..'
+import type { Constructor } from 'type-fest'
+import { Commands, Pool, Round, RoundState, Server, type Data, type ServerWebSocket, type Store } from '..'
 import { logger } from '../utils/logger'
 
 /**
@@ -46,6 +47,22 @@ export interface RoomOptions<U> {
      * Global commands to register for the room.
      */
     globalCommands?: Commands<U>
+
+    /**
+     * Whether to ignore global commands.
+     */
+
+    ignoreGlobalCommands?: boolean
+
+    /**
+     * Room round.
+     */
+    round?: Constructor<Round>
+
+    /**
+     * Store instance.
+     */
+    store: Store
 }
 
 /**
@@ -70,9 +87,14 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
     public readonly maxSpectators: number
     public readonly autoJoin: boolean
     public readonly pool: Pool<U>
-    private _server: BunServer
-    private globalCommands?: Commands<U>
-    public commands: Commands<U>
+    private readonly _server: BunServer
+    private readonly globalCommands?: Commands<U>
+    private readonly ignoreGlobalCommands: boolean
+    public readonly commands: Commands<U>
+    private readonly roundConstructor?: Constructor<Round>
+    private readonly roundState?: RoundState<U>
+    private readonly store: Store
+
     /**
      * Creates a new Room instance.
      * @param server The server instance.
@@ -90,7 +112,12 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
         this.maxSpectators = options.maxSpectators ?? Infinity
         this.autoJoin = !!options.autoJoin
         this.globalCommands = options.globalCommands
+        this.ignoreGlobalCommands = !!options.ignoreGlobalCommands
         this.commands = new Commands<U>()
+        this.roundConstructor = options.round
+        this.store = options.store
+
+        if (this.roundConstructor) this.roundState = new RoundState(this, this.store, this.roundConstructor)
 
         this._server = this.server.getServer()
         this._server.publish(this.name, `Room ${this.name} created`)
@@ -112,6 +139,11 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
             logger.info(`Auto join enabled for room ${this.name}, manually joining is disabled`)
             this.server.on('connection', this.handleAutoJoin.bind(this))
         }
+    }
+
+    public get round() {
+        if (this.roundState) return this.roundState
+        else logger.error(`Room ${this.name} does not have a round`)
     }
 
     private _join(ws: ServerWebSocket<U>) {
@@ -155,7 +187,9 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
     }
 
     private handleOnMessage(ws: ServerWebSocket<U>, message: string | Buffer) {
-        if (!this.commands.execute(ws, message)) this.globalCommands?.execute(ws, message)
+        if (!this.commands.execute(ws, message)) {
+            if (!this.ignoreGlobalCommands) this.globalCommands?.execute(ws, message)
+        }
     }
 
     private handleAutoJoin(ws: ServerWebSocket<U>) {

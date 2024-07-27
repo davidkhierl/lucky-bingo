@@ -1,11 +1,11 @@
 import type { Constructor } from 'type-fest'
-import { Command, Commands, Rooms, Server, type ServerOptions } from '..'
+import { Command, Commands, InMemoryStore, Rooms, Server, type ServerOptions, type Store } from '..'
 import { logger } from '../utils/logger'
 
 /**
  * Gemo create options.
  */
-export interface GemoCreateOptions<U> {
+export interface GemoCreateOptions<U, C extends U> {
     /**
      * Server options.
      */
@@ -14,7 +14,12 @@ export interface GemoCreateOptions<U> {
     /**
      * Commands to register.
      */
-    commands?: { code: number; commands: Constructor<Command<U>>[] }[]
+    commands?: { code: number; commands: Constructor<Command<C>>[] }[]
+
+    /**
+     * Store instance.
+     */
+    store?: Store
 }
 
 /**
@@ -28,9 +33,11 @@ export class Gemo<U> {
      * @param rooms - Rooms manager.
      */
     constructor(
+        public readonly name: string,
         public readonly server: Server<U>,
         public readonly rooms: Rooms<U>,
-        public readonly commands: Commands<U>
+        public readonly commands: Commands<U>,
+        public readonly store: Store
     ) {}
 
     /**
@@ -49,11 +56,12 @@ export class Gemo<U> {
      * @param options - The options to configure the Gemo instance.
      * @returns A new Gemo instance.
      */
-    public static create<T>(options: GemoCreateOptions<T>) {
+    public static create<T, C extends T>(name: string, options: GemoCreateOptions<T, C>) {
+        const store = options.store ?? new InMemoryStore(name)
         const server = new Server(options.server)
-        const commands = new Commands<T>()
+        const commands = new Commands<C>()
         options.commands?.forEach((command) => commands.add(command.code, ...command.commands))
-        const rooms = new Rooms(server, commands)
-        return new Gemo(server, rooms, commands)
+        const rooms = new Rooms(server, store, commands)
+        return new Gemo(name, server, rooms, commands, store)
     }
 }

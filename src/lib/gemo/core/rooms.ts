@@ -1,4 +1,4 @@
-import { Commands, Room, type RoomOptions, type Server } from '..'
+import { Commands, Room, type RoomOptions, type Server, type Store } from '..'
 
 /**
  * Represents a collection of rooms.
@@ -14,6 +14,7 @@ export class Rooms<U> {
      */
     constructor(
         private readonly server: Server<U>,
+        private readonly store: Store,
         private readonly commands?: Commands<U>
     ) {}
 
@@ -23,8 +24,8 @@ export class Rooms<U> {
      * @param options - The options for the room.
      * @returns The created room.
      */
-    public create(name: string, options?: Omit<RoomOptions<U>, 'name' | 'globalCommands'>): Room<U> {
-        const room = new Room<U>(this.server, { name, globalCommands: this.commands, ...options })
+    public create(name: string, options?: Omit<RoomOptions<U>, 'name' | 'globalCommands' | 'store'>): Room<U> {
+        const room = new Room<U>(this.server, { name, globalCommands: this.commands, store: this.store, ...options })
         room.on('dispose', this.handleOnRoomDispose.bind(this))
         this.rooms.add(room)
         return room
