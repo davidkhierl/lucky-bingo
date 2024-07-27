@@ -18,12 +18,14 @@
     "dependencies": {
         "@faker-js/faker": "^8.4.1",
         "currency.js": "^2.0.4",
+        "destr": "^2.0.3",
         "effect": "^3.5.7",
         "express": "^4.19.2",
         "nanoid": "^5.0.7",
         "pino": "^9.3.2",
         "pino-pretty": "^11.2.2",
         "rxjs": "^7.8.1",
-        "ws": "^8.18.0"
+        "ws": "^8.18.0",
+        "zod": "^3.23.8"
     }
 }
