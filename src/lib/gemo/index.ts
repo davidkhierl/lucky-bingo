@@ -1,5 +1,7 @@
 export * from './server/errors/upgrade-exception'
 
+export * from './core/command'
+export * from './core/commands'
 export * from './core/gemo'
 export * from './core/pool'
 export * from './core/room'
@@ -13,5 +15,7 @@ export * from './server/errors/upgrade-failed-exception'
 export * from './server/server'
 export * from './server/utils/is-anonymous-socket'
 export * from './server/utils/is-authenticated-socket'
+
+export * from './utils/logger'
 
 export * from './types'

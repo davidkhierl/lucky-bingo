@@ -1,13 +1,13 @@
 import type { Server as BunServer } from 'bun'
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:stream'
-import { Pool, Server, type Data, type ServerWebSocket } from '..'
+import { Commands, Pool, Server, type Data, type ServerWebSocket } from '..'
 import { logger } from '../utils/logger'
 
 /**
  * Options for creating a Room.
  */
-export interface RoomOptions {
+export interface RoomOptions<U> {
     /**
      * Name of the room.
      * This is also used as the channel name for the room.
@@ -41,6 +41,11 @@ export interface RoomOptions {
      * If set to true, manual joining is disabled.
      */
     autoJoin?: boolean
+
+    /**
+     * Global commands to register for the room.
+     */
+    globalCommands?: Commands<U>
 }
 
 /**
@@ -66,7 +71,8 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
     public readonly autoJoin: boolean
     public readonly pool: Pool<U>
     private _server: BunServer
-
+    private globalCommands?: Commands<U>
+    public commands: Commands<U>
     /**
      * Creates a new Room instance.
      * @param server The server instance.
@@ -74,7 +80,7 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
      */
     constructor(
         private readonly server: Server<U>,
-        options: RoomOptions
+        options: RoomOptions<U>
     ) {
         super()
 
@@ -83,6 +89,8 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
         this.allowSpectators = options.allowSpectators ?? true
         this.maxSpectators = options.maxSpectators ?? Infinity
         this.autoJoin = !!options.autoJoin
+        this.globalCommands = options.globalCommands
+        this.commands = new Commands<U>()
 
         this._server = this.server.getServer()
         this._server.publish(this.name, `Room ${this.name} created`)
@@ -92,6 +100,14 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
 
         logger.info(`Room ${this.name} created`)
 
+        /**
+         * Listen for incoming messages from the room.
+         */
+        this.server.on('message', this.handleOnMessage.bind(this))
+
+        /**
+         * If auto join is enabled, listen for incoming connections and join them to the room.
+         */
         if (this.autoJoin) {
             logger.info(`Auto join enabled for room ${this.name}, manually joining is disabled`)
             this.server.on('connection', this.handleAutoJoin.bind(this))
@@ -138,6 +154,10 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
         this._server.publish(this.name, data)
     }
 
+    private handleOnMessage(ws: ServerWebSocket<U>, message: string | Buffer) {
+        if (!this.commands.execute(ws, message)) this.globalCommands?.execute(ws, message)
+    }
+
     private handleAutoJoin(ws: ServerWebSocket<U>) {
         if (this.autoJoin) this._join(ws)
     }
@@ -152,6 +172,7 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
      * Disposes the room and cleans up resources.
      */
     public dispose() {
+        this.server.off('message', this.handleOnMessage.bind(this))
         if (this.autoJoin) this.server.off('connection', this.handleAutoJoin.bind(this))
 
         this.pool.forEach((ws) => ws.close(1001, 'Room disposed'))

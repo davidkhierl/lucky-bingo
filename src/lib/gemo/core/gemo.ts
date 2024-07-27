@@ -1,4 +1,5 @@
-import { Rooms, Server, type ServerOptions } from '..'
+import type { Constructor } from 'type-fest'
+import { Command, Commands, Rooms, Server, type ServerOptions } from '..'
 import { logger } from '../utils/logger'
 
 /**
@@ -9,6 +10,11 @@ export interface GemoCreateOptions<U> {
      * Server options.
      */
     server: ServerOptions<U>
+
+    /**
+     * Commands to register.
+     */
+    commands?: { code: number; commands: Constructor<Command<U>>[] }[]
 }
 
 /**
@@ -23,7 +29,8 @@ export class Gemo<U> {
      */
     constructor(
         public readonly server: Server<U>,
-        public readonly rooms: Rooms<U>
+        public readonly rooms: Rooms<U>,
+        public readonly commands: Commands<U>
     ) {}
 
     /**
@@ -44,7 +51,9 @@ export class Gemo<U> {
      */
     public static create<T>(options: GemoCreateOptions<T>) {
         const server = new Server(options.server)
-        const rooms = new Rooms(server)
-        return new Gemo(server, rooms)
+        const commands = new Commands<T>()
+        options.commands?.forEach((command) => commands.add(command.code, ...command.commands))
+        const rooms = new Rooms(server, commands)
+        return new Gemo(server, rooms, commands)
     }
 }
