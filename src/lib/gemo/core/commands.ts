@@ -4,6 +4,7 @@ import type { ServerWebSocket } from '..'
 import { logger } from '../utils/logger'
 import type { Command } from './command'
 import { messageCommandSchema } from './schema/message-command-schema'
+
 export class Commands<U> {
     private readonly commands = new Map<number, Command<U>>()
 
