@@ -2,7 +2,7 @@ import defu from 'defu'
 import { nanoid } from 'nanoid'
 import { BehaviorSubject, scan, Subject } from 'rxjs'
 import type { Constructor } from 'type-fest'
-import { logger, Room, type Round, type Store } from '..'
+import { logger, Room, type Engine, type Round, type Store } from '..'
 
 export enum State {
     Idle,
@@ -18,32 +18,32 @@ export interface Action {
     type: ActionType
 }
 
-export type ReadyPayload = Partial<Pick<Round, 'number' | 'timer'>>
+export type ReadyPayload = Pick<Round, 'timer' | 'number'>
 
 export interface Ready extends Action {
     type: 'READY'
     payload?: ReadyPayload
 }
 
-export type StartPayload = Partial<Pick<Round, 'timer'>>
+export type StartPayload = Pick<Round, 'timer'>
 
 export interface Start extends Action {
     type: 'START'
     payload?: StartPayload
 }
 
-export type LockPayload = Partial<Pick<Round, 'timer'>>
+export type LockPayload = Pick<Round, 'timer'>
 
 export interface Lock extends Action {
     type: 'LOCK'
     payload?: LockPayload
 }
 
-export type ConcludePayload<Result = any> = Partial<Pick<Round, 'timer'>> & { result: Result }
+export type ConcludePayload<R> = Pick<Round<R>, 'timer' | 'result'>
 
-export interface Conclude<Result = any> extends Action {
+export interface Conclude<R> extends Action {
     type: 'CONCLUDE'
-    payload: ConcludePayload<Result>
+    payload: ConcludePayload<R>
 }
 
 export type TickPayload = Pick<Round, 'timer'>
@@ -63,7 +63,8 @@ export class RoundState<U> {
     constructor(
         private readonly room: Room<U>,
         private readonly store: Store,
-        private readonly roundConstructor: Constructor<Round, [string]>
+        private readonly roundConstructor: Constructor<Round, [string]>,
+        private readonly engine?: Engine<U>
     ) {
         this._round = new this.roundConstructor(nanoid())
 
@@ -88,8 +89,8 @@ export class RoundState<U> {
                 _round.state = State.Ready
                 Object.assign(_round, defu(action.payload, _round))
 
-                const timer = _round.timer ? ` timer: ${_round.timer}` : ''
-                logger.info(`Round ${_round.number}${timer} ${State[_round.state]}`)
+                const timer = typeof round.timer !== 'undefined' ? ` timer: ${round.timer}` : ''
+                logger.info(`Round ${_round.number} ${State[_round.state]}${timer}`)
 
                 return _round
             }
@@ -106,8 +107,8 @@ export class RoundState<U> {
                 round.state = State.Started
                 Object.assign(round, defu(action.payload, round))
 
-                const timer = round.timer ? ` timer: ${round.timer}` : ''
-                logger.info(`Round ${round.number}${timer} ${State[round.state]}`)
+                const timer = typeof round.timer !== 'undefined' ? ` timer: ${round.timer}` : ''
+                logger.info(`Round ${round.number} ${State[round.state]}${timer}`)
 
                 return round
             }
@@ -123,8 +124,8 @@ export class RoundState<U> {
                 round.state = State.Locked
                 Object.assign(round, defu(action.payload, round))
 
-                const timer = round.timer ? ` timer: ${round.timer}` : ''
-                logger.info(`Round ${round.number}${timer} ${State[round.state]}`)
+                const timer = typeof round.timer !== 'undefined' ? ` timer: ${round.timer}` : ''
+                logger.info(`Round ${round.number} ${State[round.state]}${timer}`)
 
                 return round
             }
@@ -140,8 +141,8 @@ export class RoundState<U> {
                 Object.assign(round, defu(action.payload, round))
                 Object.freeze(round)
 
-                const timer = round.timer ? ` timer: ${round.timer}` : ''
-                logger.info(`Round ${round.number}${timer} ${State[round.state]} Result: ${round.result}`)
+                const timer = typeof round.timer !== 'undefined' ? ` timer: ${round.timer}` : ''
+                logger.info(`Round ${round.number} ${State[round.state]}${timer} Result: ${round.result}`)
 
                 return round
             }
@@ -156,8 +157,8 @@ export class RoundState<U> {
 
                 Object.assign(round, defu(action.payload, round))
 
-                const timer = round.timer ? ` timer: ${round.timer}` : ''
-                logger.debug(`Round ${round.number}${timer} ${State[round.state]}`)
+                const timer = typeof round.timer !== 'undefined' ? ` timer: ${round.timer}` : ''
+                logger.debug(`Round ${round.number} ${State[round.state]}${timer}`)
 
                 return round
             }
@@ -167,8 +168,8 @@ export class RoundState<U> {
         }
     }
 
-    public async ready() {
-        const payload = await this._round.onReady()
+    public async ready(payload?: ReadyPayload) {
+        const _roundPayload = defu(payload, await this._round.onReady())
 
         let number = 0
 
@@ -179,47 +180,52 @@ export class RoundState<U> {
         this.action.next({
             type: 'READY',
             payload: {
-                ...payload,
+                ..._roundPayload,
                 number,
             },
         })
     }
 
-    public async start() {
-        const payload = await this._round.onStart()
+    public async start(payload?: StartPayload) {
+        const _roundPayload = defu(payload, await this._round.onStart())
         this.action.next({
             type: 'START',
-            payload,
+            payload: _roundPayload,
         })
     }
 
-    public async lock() {
-        const payload = await this._round.onLock()
+    public async lock(payload?: LockPayload) {
+        const _roundPayload = defu(payload, await this._round.onLock())
         this.action.next({
             type: 'LOCK',
-            payload,
+            payload: _roundPayload,
         })
     }
 
-    public async conclude() {
-        const payload = await this._round.onConclude()
+    public async conclude<T>(payload?: Omit<ConcludePayload<T>, 'result'>) {
+        const _roundPayload = defu(payload, await this._round.onConclude())
+
         this.action.next({
             type: 'CONCLUDE',
-            payload,
+            payload: _roundPayload,
         })
     }
 
-    public tick(payload: TickPayload) {
+    public async tick(payload: TickPayload) {
+        const _roundPayload = this._round.onTick ? defu(payload, await this._round.onTick()) : payload
         this.action.next({
             type: 'TICK',
-            payload,
+            payload: _roundPayload,
         })
     }
 
     public async run() {
-        await this.ready()
-        await this.start()
-        await this.lock()
-        await this.conclude()
+        if (this.engine) this.engine.start(this)
+        else {
+            await this.ready()
+            await this.start()
+            await this.lock()
+            await this.conclude()
+        }
     }
 }

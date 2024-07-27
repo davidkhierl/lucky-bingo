@@ -2,7 +2,18 @@ import type { Server as BunServer } from 'bun'
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:stream'
 import type { Constructor } from 'type-fest'
-import { Commands, GemoError, Pool, Round, RoundState, Server, type Data, type ServerWebSocket, type Store } from '..'
+import {
+    Commands,
+    GemoError,
+    Pool,
+    Round,
+    RoundState,
+    Server,
+    type Data,
+    type Engine,
+    type ServerWebSocket,
+    type Store,
+} from '..'
 import { logger } from '../utils/logger'
 
 /**
@@ -63,6 +74,8 @@ export interface RoomOptions<U> {
      * Store instance.
      */
     store: Store
+
+    engine?: Engine<U>
 }
 
 /**
@@ -117,7 +130,8 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
         this.roundConstructor = options.round
         this.store = options.store
 
-        if (this.roundConstructor) this.roundState = new RoundState(this, this.store, this.roundConstructor)
+        if (this.roundConstructor)
+            this.roundState = new RoundState(this, this.store, this.roundConstructor, options.engine)
 
         this._server = this.server.getServer()
         this._server.publish(this.name, `Room ${this.name} created`)

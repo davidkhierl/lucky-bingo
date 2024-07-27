@@ -9,6 +9,9 @@ export * from './core/rooms'
 export * from './core/round'
 export * from './core/round-state'
 
+export * from './engines/engine'
+export * from './engines/timer-engine'
+
 export * from './errors/gemo-error'
 
 export * from './server/errors/invalid-token-exception'

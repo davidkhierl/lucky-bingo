@@ -15,23 +15,22 @@ export type OnLock = StatePayload<LockPayload>
 export type OnConclude<R> = StatePayload<ConcludePayload<R>, true>
 export type OnTick = StatePayload<TickPayload>
 
-export abstract class Round {
+export abstract class Round<R = unknown> {
     public readonly id: string
     public number: number
-    public timer: number | null
+    public timer?: number
     public state: State
-    public result: null | any
+    public result?: R
 
     constructor(id: string) {
         this.id = id
         this.number = 0
-        this.timer = null
         this.state = State.Idle
     }
 
     public abstract onReady(): OnReady
     public abstract onStart(): OnStart
     public abstract onLock(): OnLock
-    public abstract onConclude(): OnConclude<unknown>
+    public abstract onConclude(): OnConclude<R>
     public onTick?(): OnTick
 }
