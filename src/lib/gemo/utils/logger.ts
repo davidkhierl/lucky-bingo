@@ -1,11 +1,3 @@
-import pino from 'pino'
+import { createConsola } from 'consola'
 
-export const logger = pino({
-    level: 'trace',
-    transport: {
-        target: 'pino-pretty',
-        options: {
-            colorize: true,
-        },
-    },
-})
+export const logger = createConsola({ level: 5 })
