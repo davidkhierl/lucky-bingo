@@ -15,7 +15,11 @@ const gemo = Gemo.create('Luck Bingo', {
 
 const room = gemo.rooms.create('main', { autoJoin: true, round: LuckyBingoRound })
 
-await room.round?.run()
+// room.round.events.subscribe((round) => {
+//     console.log(round)
+// })
+
+await room.round.run()
 
 // TODO: Round engine
 // TODO: Bet processor
