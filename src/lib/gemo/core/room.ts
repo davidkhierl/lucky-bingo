@@ -2,7 +2,7 @@ import type { Server as BunServer } from 'bun'
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:stream'
 import type { Constructor } from 'type-fest'
-import { Commands, Pool, Round, RoundState, Server, type Data, type ServerWebSocket, type Store } from '..'
+import { Commands, GemoError, Pool, Round, RoundState, Server, type Data, type ServerWebSocket, type Store } from '..'
 import { logger } from '../utils/logger'
 
 /**
@@ -143,7 +143,7 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
 
     public get round() {
         if (this.roundState) return this.roundState
-        else logger.error(`Room ${this.name} does not have a round`)
+        else throw new GemoError(`Round is not enabled for room ${this.name}`)
     }
 
     private _join(ws: ServerWebSocket<U>) {

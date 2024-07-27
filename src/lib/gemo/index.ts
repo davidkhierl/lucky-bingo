@@ -9,6 +9,8 @@ export * from './core/rooms'
 export * from './core/round'
 export * from './core/round-state'
 
+export * from './errors/gemo-error'
+
 export * from './server/errors/invalid-token-exception'
 export * from './server/errors/unauthorized-exception'
 export * from './server/errors/unknown-error-exception'
