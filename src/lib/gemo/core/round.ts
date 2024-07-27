@@ -12,7 +12,7 @@ export type StatePayload<T, R = false, C = R extends true ? T : T | undefined> =
 export type OnReady = StatePayload<ReadyPayload>
 export type OnStart = StatePayload<StartPayload>
 export type OnLock = StatePayload<LockPayload>
-export type OnConclude = StatePayload<ConcludePayload, true>
+export type OnConclude<R> = StatePayload<ConcludePayload<R>, true>
 export type OnTick = StatePayload<TickPayload>
 
 export abstract class Round {
@@ -32,6 +32,6 @@ export abstract class Round {
     public abstract onReady(): OnReady
     public abstract onStart(): OnStart
     public abstract onLock(): OnLock
-    public abstract onConclude(): OnConclude
+    public abstract onConclude(): OnConclude<unknown>
     public onTick?(): OnTick
 }
