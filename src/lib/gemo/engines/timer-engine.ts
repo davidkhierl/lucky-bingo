@@ -26,6 +26,7 @@ export class TimerEngine<U> implements Engine<U> {
     }
 
     public async start(round: RoundState<U>) {
+        console.log(round.events.value)
         return interval(this.frequency)
             .pipe(
                 switchMap(() =>
@@ -34,7 +35,21 @@ export class TimerEngine<U> implements Engine<U> {
                     )
                 ),
                 scan((currentTimer) => --currentTimer, this.duration + 1),
-                takeWhile((timer) => timer >= 0),
+                // map((timer) => {
+                //     // TODO: Fix condition
+                //     // console.log(round.events.value.state === State.Concluding && timer > 0, timer)
+                //     if (round.events.value.state === State.Concluding && timer > 0) return 0
+                //     return timer
+                // }),
+                // TODO: Fix condition
+                takeWhile((timer) => {
+                    console.log(timer)
+                    return (
+                        timer >= 0 &&
+                        round.events.value.state !== State.Concluding &&
+                        (round.events.value.state === State.Concluded || timer !== 0)
+                    )
+                }),
                 tap(async (timer) => {
                     this.timerState.next(false)
                     await this.handleTimer(timer, round)
@@ -55,10 +70,26 @@ export class TimerEngine<U> implements Engine<U> {
         if (timer === this.duration) {
             await round.ready()
             round.start({ timer })
-        } else if (timer === this.lockAt) {
-            if (round.events.value.state !== State.Locked) round.lock({ timer })
-            if (this.lockAt === 0) await round.conclude({ timer })
-        } else if (timer === 0) await round.conclude({ timer })
-        else round.tick({ timer })
+            return
+        }
+
+        if (timer === this.lockAt) {
+            if (round.events.value.state !== State.Locked) {
+                round.lock({ timer })
+            }
+            if (this.lockAt === 0) {
+                await round.conclude({ timer })
+            }
+            return
+        }
+
+        if (timer === 0 && round.events.value.state !== State.Concluded) {
+            await round.conclude({ timer })
+            return
+        }
+
+        if (timer !== 0) {
+            round.tick({ timer })
+        }
     }
 }

@@ -1,14 +1,8 @@
-import { Command, type CommandNext, Room, type ServerWebSocket, logger } from '@/lib/gemo'
+import { Command, Room, State, type ServerWebSocket } from '@/lib/gemo'
 
 export class BetCommand<U> extends Command<U> {
-    protected async handle(
-        ws: ServerWebSocket<U>,
-        message: string | Buffer,
-        room: Room<U>,
-        next: CommandNext
-    ): Promise<void> {
-        logger.info(message, 'Bet command executed')
-        await room.round.run()
-        ws.send('Bet command executed')
+    protected async handle(ws: ServerWebSocket<U>, message: string | Buffer, room: Room<U>): Promise<void> {
+        if (room.round.events.value.state === State.Concluded) await room.round.run()
+        else await room.round.conclude()
     }
 }
