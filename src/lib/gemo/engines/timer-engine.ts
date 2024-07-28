@@ -40,7 +40,9 @@ export class TimerEngine<U> implements Engine<U> {
                     await this.handleTimer(timer, round)
                     this.timerState.next(true)
                 }),
-                this.control.type === 'continues' ? repeat({ delay: this.control.delay }) : identity
+                this.control.type === 'continues'
+                    ? repeat({ delay: this.control.delay ? this.control.delay * 1000 : undefined })
+                    : identity
             )
             .subscribe({
                 complete: () => {
