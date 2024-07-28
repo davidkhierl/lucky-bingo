@@ -6,23 +6,47 @@ import { logger, Room, type Engine, type Round, type Store } from '..'
 
 export enum State {
     Idle,
+    Preparing,
     Ready,
+    Starting,
     Started,
+    Locking,
     Locked,
+    Concluding,
     Concluded,
 }
 
-export type ActionType = 'READY' | 'START' | 'LOCK' | 'CONCLUDE' | 'TICK'
+export type ActionType =
+    | 'PREPARING'
+    | 'READY'
+    | 'STARTING'
+    | 'START'
+    | 'LOCKING'
+    | 'LOCK'
+    | 'CONCLUDING'
+    | 'CONCLUDE'
+    | 'TICK'
 
 export interface Action {
     type: ActionType
 }
 
-export type ReadyPayload = Pick<Round, 'timer' | 'number'>
+export type PreparingPayload = Pick<Round, 'number'>
+
+export interface Preparing extends Action {
+    type: 'PREPARING'
+    payload?: PreparingPayload
+}
+
+export type ReadyPayload = Pick<Round, 'timer'>
 
 export interface Ready extends Action {
     type: 'READY'
     payload?: ReadyPayload
+}
+
+export interface Starting extends Action {
+    type: 'STARTING'
 }
 
 export type StartPayload = Pick<Round, 'timer'>
@@ -32,11 +56,19 @@ export interface Start extends Action {
     payload?: StartPayload
 }
 
+export interface Locking extends Action {
+    type: 'LOCKING'
+}
+
 export type LockPayload = Pick<Round, 'timer'>
 
 export interface Lock extends Action {
     type: 'LOCK'
     payload?: LockPayload
+}
+
+export interface Concluding extends Action {
+    type: 'CONCLUDING'
 }
 
 export type ConcludePayload<R> = Pick<Round<R>, 'timer' | 'result'>
@@ -53,7 +85,16 @@ export interface Tick extends Action {
     payload: TickPayload
 }
 
-export type StateAction<Result = any> = Ready | Start | Lock | Conclude<Result> | Tick
+export type StateAction<Result = any> =
+    | Preparing
+    | Ready
+    | Starting
+    | Start
+    | Locking
+    | Lock
+    | Concluding
+    | Conclude<Result>
+    | Tick
 
 export class RoundState<U> {
     private readonly action = new Subject<StateAction>()
@@ -75,32 +116,58 @@ export class RoundState<U> {
 
     private _actionHandler(round: Round, action: StateAction): Round {
         switch (action.type) {
-            case 'READY': {
-                let _round = round.state === State.Idle ? round : (this._round = new this.roundConstructor(nanoid()))
-
-                if (_round.state !== State.Idle && _round.state !== State.Concluded) {
+            case 'PREPARING': {
+                if (round.state !== State.Idle && round.state !== State.Concluded) {
                     logger.error(
-                        `Failed to ready round ${_round.number} because it is currently in ${State[_round.state]} state, expected ${State[State.Idle]} or ${State[State.Concluded]} state`
+                        `Failed to prepare round because it is currently in ${State[round.state]} state, expected ${State[State.Idle]} or ${State[State.Concluded]} state`
                     )
-
-                    return _round
+                    return round
                 }
 
-                _round.state = State.Ready
-                Object.assign(_round, defu(action.payload, _round))
+                logger.start(`Preparing round${action.payload?.number ? ` ${action.payload.number}` : ''} ...`)
 
-                const timer = round.timer ? ` timer: ${round.timer}` : ''
-                logger.info(`Round ${_round.number} ${State[_round.state]}${timer}`)
+                let _round = round.state === State.Idle ? round : (this._round = new this.roundConstructor(nanoid()))
+
+                _round.state = State.Preparing
+                Object.assign(_round, defu(action.payload, _round))
 
                 return _round
             }
+            case 'READY': {
+                if (round.state !== State.Preparing) {
+                    logger.error(
+                        `Failed to ready round ${round.number} because it is currently in ${State[round.state]} state, expected ${State[State.Preparing]} state`
+                    )
+                    return round
+                }
 
-            case 'START': {
+                round.state = State.Ready
+                Object.assign(round, defu(action.payload, round))
+
+                const timer = round.timer ? ` timer: ${round.timer}` : ''
+                logger.info(`Round ${round.number} ${State[round.state]}${timer}`)
+
+                return round
+            }
+
+            case 'STARTING': {
                 if (round.state !== State.Ready) {
                     logger.error(
                         `Failed to start round ${round.number} because it is currently in ${State[round.state]} state, expected ${State[State.Ready]} state`
                     )
+                    return round
+                }
 
+                logger.start(`Starting round ${round.number} ...`)
+                round.state = State.Starting
+                return round
+            }
+
+            case 'START': {
+                if (round.state !== State.Starting) {
+                    logger.error(
+                        `Failed to start round ${round.number} because it is currently in ${State[round.state]} state, expected ${State[State.Starting]} state`
+                    )
                     return round
                 }
 
@@ -113,10 +180,23 @@ export class RoundState<U> {
                 return round
             }
 
-            case 'LOCK': {
+            case 'LOCKING': {
                 if (round.state !== State.Started) {
                     logger.error(
                         `Failed to lock round ${round.number} because it is currently in ${State[round.state]} state, expected ${State[State.Started]} state`
+                    )
+                    return round
+                }
+
+                logger.start(`Locking round ${round.number} ...`)
+                round.state = State.Locking
+                return round
+            }
+
+            case 'LOCK': {
+                if (round.state !== State.Locking) {
+                    logger.error(
+                        `Failed to lock round ${round.number} because it is currently in ${State[round.state]} state, expected ${State[State.Locking]} state`
                     )
                     return round
                 }
@@ -129,10 +209,24 @@ export class RoundState<U> {
 
                 return round
             }
-            case 'CONCLUDE': {
+
+            case 'CONCLUDING': {
                 if (round.state !== State.Locked) {
                     logger.error(
                         `Failed to conclude round ${round.number} because it is currently in ${State[round.state]} state, expected ${State[State.Locked]} state`
+                    )
+                    return round
+                }
+
+                logger.start(`Waiting for round ${round.number} results ...`)
+                round.state = State.Concluding
+                return round
+            }
+
+            case 'CONCLUDE': {
+                if (round.state !== State.Concluding) {
+                    logger.error(
+                        `Failed to conclude round ${round.number} because it is currently in ${State[round.state]} state, expected ${State[State.Concluding]} state`
                     )
                     return round
                 }
@@ -175,20 +269,26 @@ export class RoundState<U> {
         if (_number) number = await this.store.set<number>(`${this.room.name}:round`, _number + 1)
         else number = await this.store.set<number>(`${this.room.name}:round`, number + 1)
 
-        logger.start(`Preparing round ${number} ...`)
+        this.action.next({
+            type: 'PREPARING',
+            payload: {
+                number,
+            },
+        })
+
         const _roundPayload = defu(payload, await this._round.onReady())
 
         this.action.next({
             type: 'READY',
-            payload: {
-                ..._roundPayload,
-                number,
-            },
+            payload: _roundPayload,
         })
     }
 
     public start(payload?: StartPayload) {
-        logger.start(`Starting round ${this._round.number} ...`)
+        this.action.next({
+            type: 'STARTING',
+        })
+
         const _roundPayload = defu(payload, this._round.onStart())
         this.action.next({
             type: 'START',
@@ -197,7 +297,10 @@ export class RoundState<U> {
     }
 
     public lock(payload?: LockPayload) {
-        logger.start(`Locking round ${this._round.number} ...`)
+        this.action.next({
+            type: 'LOCKING',
+        })
+
         const _roundPayload = defu(payload, this._round.onLock())
         this.action.next({
             type: 'LOCK',
@@ -206,7 +309,10 @@ export class RoundState<U> {
     }
 
     public async conclude<T>(payload?: Omit<ConcludePayload<T>, 'result'>) {
-        logger.start(`Generating round ${this._round.number} result ...`)
+        this.action.next({
+            type: 'CONCLUDING',
+        })
+
         const _roundPayload = defu(payload, await this._round.onConclude())
 
         this.action.next({
@@ -224,6 +330,13 @@ export class RoundState<U> {
     }
 
     public async run() {
+        if (this._round.state !== State.Idle && this._round.state !== State.Concluded) {
+            logger.error(
+                `Failed to run round because it is currently in ${State[this._round.state]} state, expected ${State[State.Idle]} or ${State[State.Concluded]} state`
+            )
+            return
+        }
+
         if (this.engine) this.engine.start(this)
         else {
             await this.ready()
