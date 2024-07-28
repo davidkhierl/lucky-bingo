@@ -89,7 +89,7 @@ export class RoundState<U> {
                 _round.state = State.Ready
                 Object.assign(_round, defu(action.payload, _round))
 
-                const timer = typeof round.timer !== 'undefined' ? ` timer: ${round.timer}` : ''
+                const timer = round.timer ? ` timer: ${round.timer}` : ''
                 logger.info(`Round ${_round.number} ${State[_round.state]}${timer}`)
 
                 return _round
@@ -169,13 +169,14 @@ export class RoundState<U> {
     }
 
     public async ready(payload?: ReadyPayload) {
-        const _roundPayload = defu(payload, await this._round.onReady())
-
         let number = 0
 
         let _number = await this.store.get<number>(`${this.room.name}:round`)
         if (_number) number = await this.store.set<number>(`${this.room.name}:round`, _number + 1)
         else number = await this.store.set<number>(`${this.room.name}:round`, number + 1)
+
+        logger.start(`Preparing round ${number} ...`)
+        const _roundPayload = defu(payload, await this._round.onReady())
 
         this.action.next({
             type: 'READY',
@@ -186,16 +187,18 @@ export class RoundState<U> {
         })
     }
 
-    public async start(payload?: StartPayload) {
-        const _roundPayload = defu(payload, await this._round.onStart())
+    public start(payload?: StartPayload) {
+        logger.start(`Starting round ${this._round.number} ...`)
+        const _roundPayload = defu(payload, this._round.onStart())
         this.action.next({
             type: 'START',
             payload: _roundPayload,
         })
     }
 
-    public async lock(payload?: LockPayload) {
-        const _roundPayload = defu(payload, await this._round.onLock())
+    public lock(payload?: LockPayload) {
+        logger.start(`Locking round ${this._round.number} ...`)
+        const _roundPayload = defu(payload, this._round.onLock())
         this.action.next({
             type: 'LOCK',
             payload: _roundPayload,
@@ -203,6 +206,7 @@ export class RoundState<U> {
     }
 
     public async conclude<T>(payload?: Omit<ConcludePayload<T>, 'result'>) {
+        logger.start(`Generating round ${this._round.number} result ...`)
         const _roundPayload = defu(payload, await this._round.onConclude())
 
         this.action.next({
@@ -223,8 +227,8 @@ export class RoundState<U> {
         if (this.engine) this.engine.start(this)
         else {
             await this.ready()
-            await this.start()
-            await this.lock()
+            this.start()
+            this.lock()
             await this.conclude()
         }
     }

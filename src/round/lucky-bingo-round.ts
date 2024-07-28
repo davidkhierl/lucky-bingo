@@ -1,16 +1,17 @@
-import { Round, type OnConclude, type OnLock, type OnReady, type OnStart } from '@/lib/gemo'
+import { Round, type ConcludePayload, type LockPayload, type ReadyPayload } from '@/lib/gemo'
 
-export class LuckyBingoRound extends Round {
-    public onReady(): OnReady {
+export class LuckyBingoRound extends Round<number> {
+    public async onReady(): Promise<ReadyPayload | undefined> {
+        await new Promise((resolve) => setTimeout(resolve, 5000))
         return
     }
-    public onStart(): OnStart {
+    public onStart(): ReadyPayload | undefined {
         return
     }
-    public onLock(): OnLock {
+    public onLock(): LockPayload | undefined {
         return
     }
-    public onConclude(): OnConclude<number> {
-        return { result: Math.ceil(Math.random() * 100) }
+    public onConclude(): Promise<ConcludePayload<number>> {
+        return new Promise((resolve) => setTimeout(() => resolve({ result: Math.ceil(Math.random() * 100) }), 5000))
     }
 }

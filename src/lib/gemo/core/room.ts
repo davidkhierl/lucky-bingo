@@ -201,8 +201,8 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
     }
 
     private handleOnMessage(ws: ServerWebSocket<U>, message: string | Buffer) {
-        if (!this.commands.execute(ws, message)) {
-            if (!this.ignoreGlobalCommands) this.globalCommands?.execute(ws, message)
+        if (!this.commands.execute(ws, message, this)) {
+            if (!this.ignoreGlobalCommands) this.globalCommands?.execute(ws, message, this)
         }
     }
 

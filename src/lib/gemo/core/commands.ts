@@ -1,6 +1,6 @@
 import { destr } from 'destr'
 import type { Constructor } from 'type-fest'
-import type { ServerWebSocket } from '..'
+import type { Room, ServerWebSocket } from '..'
 import { logger } from '../utils/logger'
 import type { Command } from './command'
 import { messageCommandSchema } from './schema/message-command-schema'
@@ -24,7 +24,7 @@ export class Commands<U> {
         return this.commands.get(code)
     }
 
-    public execute(ws: ServerWebSocket<U>, message: string | Buffer): boolean {
+    public execute(ws: ServerWebSocket<U>, message: string | Buffer, room: Room<U>): boolean {
         const code = this.parseMessageCode(message)
         if (!code) return false
 
@@ -35,7 +35,7 @@ export class Commands<U> {
             return false
         }
 
-        command.execute(ws, message)
+        command.execute(ws, message, room)
 
         return true
     }
