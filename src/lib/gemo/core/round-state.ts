@@ -38,7 +38,7 @@ export interface Preparing extends Action {
     payload?: PreparingPayload
 }
 
-export type ReadyPayload = Pick<Round, 'timer'>
+export type ReadyPayload = Pick<Round, 'timer' | 'metadata'>
 
 export interface Ready extends Action {
     type: 'READY'
@@ -49,7 +49,7 @@ export interface Starting extends Action {
     type: 'STARTING'
 }
 
-export type StartPayload = Pick<Round, 'timer'>
+export type StartPayload = Pick<Round, 'timer' | 'metadata'>
 
 export interface Start extends Action {
     type: 'START'
@@ -60,7 +60,7 @@ export interface Locking extends Action {
     type: 'LOCKING'
 }
 
-export type LockPayload = Pick<Round, 'timer'>
+export type LockPayload = Pick<Round, 'timer' | 'metadata'>
 
 export interface Lock extends Action {
     type: 'LOCK'
@@ -71,14 +71,14 @@ export interface Concluding extends Action {
     type: 'CONCLUDING'
 }
 
-export type ConcludePayload<R> = Pick<Round<R>, 'timer' | 'result'>
+export type ConcludePayload<R> = Pick<Round<R>, 'timer' | 'result' | 'metadata'>
 
 export interface Conclude<R> extends Action {
     type: 'CONCLUDE'
     payload: ConcludePayload<R>
 }
 
-export type TickPayload = Pick<Round, 'timer'>
+export type TickPayload = Pick<Round, 'timer' | 'metadata'>
 
 export interface Tick extends Action {
     type: 'TICK'
@@ -289,7 +289,7 @@ export class RoundState<U> {
             type: 'STARTING',
         })
 
-        const _roundPayload = defu(payload, this._round.onStart())
+        const _roundPayload = defu(payload, this._round.onStart(this._round.metadata))
         this.action.next({
             type: 'START',
             payload: _roundPayload,
@@ -301,7 +301,7 @@ export class RoundState<U> {
             type: 'LOCKING',
         })
 
-        const _roundPayload = defu(payload, this._round.onLock())
+        const _roundPayload = defu(payload, this._round.onLock(this._round.metadata))
         this.action.next({
             type: 'LOCK',
             payload: _roundPayload,
@@ -313,7 +313,7 @@ export class RoundState<U> {
             type: 'CONCLUDING',
         })
 
-        const _roundPayload = defu(payload, await this._round.onConclude())
+        const _roundPayload = defu(payload, await this._round.onConclude(this._round.metadata))
 
         this.action.next({
             type: 'CONCLUDE',
@@ -322,7 +322,7 @@ export class RoundState<U> {
     }
 
     public async tick(payload: TickPayload) {
-        const _roundPayload = this._round.onTick ? defu(payload, await this._round.onTick()) : payload
+        const _roundPayload = this._round.onTick ? defu(payload, this._round.onTick(this._round.metadata)) : payload
         this.action.next({
             type: 'TICK',
             payload: _roundPayload,
