@@ -1,4 +1,4 @@
-import { Gemo, State, TimerEngine } from '@gemo'
+import { Gemo, TimerEngine } from '@gemo'
 import { BetCommand } from './commands/bet-command'
 import { LuckyBingoRound } from './round/lucky-bingo-round'
 import { createUser } from './services/create-user'
@@ -16,14 +16,13 @@ const gemo = Gemo.create('Luck Bingo', {
 const room = gemo.rooms.create('main', {
     autoJoin: true,
     round: LuckyBingoRound,
-    engine: new TimerEngine({ duration: 10, lockAt: 3 }),
+    engine: new TimerEngine({ duration: 10, lockAt: 3, control: { type: 'single' } }),
 })
 
 room.round.events.subscribe((round) => {
-    if (round.state === State.Concluded) console.log(round)
+    const message = JSON.stringify({ code: 103, ...round.toJSON() })
+    room.send(message)
 })
-
-await room.round.run()
 
 // TODO: Bet processor
 // TODO: Reward processor
