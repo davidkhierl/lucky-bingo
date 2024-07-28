@@ -8,13 +8,7 @@ import {
     type TickPayload,
 } from './round-state'
 
-// export type StatePayload<T, R extends boolean = false, C = R extends true ? T : T | undefined> = C | PromiseLike<C>
-
-// export type OnReady = StatePayload<ReadyPayload>
-// export type OnStart = StatePayload<StartPayload>
-// export type OnLock = StatePayload<LockPayload>
-// export type OnConclude<R> = StatePayload<ConcludePayload<R>, true>
-// export type OnTick = StatePayload<TickPayload>
+export type RoundMetadata = Record<string, any>
 
 export abstract class Round<R = unknown> {
     public readonly id: string
@@ -22,6 +16,7 @@ export abstract class Round<R = unknown> {
     public timer?: number
     public state: State
     public result?: R
+    public metadata?: RoundMetadata
 
     constructor(id: string) {
         this.id = id
@@ -30,18 +25,19 @@ export abstract class Round<R = unknown> {
     }
 
     public abstract onReady(): Promisable<ReadyPayload | undefined>
-    public abstract onStart(): StartPayload | undefined
-    public abstract onLock(): LockPayload | undefined
-    public abstract onConclude(): Promisable<ConcludePayload<R>>
-    public onTick?(): TickPayload | undefined
+    public abstract onStart(metadata?: RoundMetadata): StartPayload | undefined
+    public abstract onLock(metadata?: RoundMetadata): LockPayload | undefined
+    public abstract onConclude(metadata?: RoundMetadata): Promisable<ConcludePayload<R>>
+    public onTick?(metadata?: RoundMetadata): TickPayload | undefined
 
     public toJSON() {
         return {
             id: this.id,
             number: this.number,
-            state: State[this.state],
+            state: this.state,
             timer: this.timer,
             result: this.result,
+            metadata: this.metadata,
         }
     }
 }
