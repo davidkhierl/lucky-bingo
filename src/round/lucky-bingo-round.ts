@@ -5,14 +5,15 @@ export class LuckyBingoRound extends Round<number[]> {
     private drawnNumbers = new Set<number>()
 
     public async onReady(): Promise<ReadyPayload | undefined> {
-        this.numbers = Array.from({ length: 75 }, (_, i) => i + 1)
-        this.drawnNumbers = new Set<number>()
+        // this.numbers = Array.from({ length: 75 }, (_, i) => i + 1)
+        // this.drawnNumbers = new Set<number>()
 
-        return {
-            metadata: {
-                numbers: this.getDrawnNumbers(),
-            },
-        }
+        // return {
+        //     metadata: {
+        //         numbers: this.getDrawnNumbers(),
+        //     },
+        // }
+        return
     }
     public onStart(): ReadyPayload | undefined {
         return
@@ -21,12 +22,15 @@ export class LuckyBingoRound extends Round<number[]> {
         return
     }
     public onConclude(): ConcludePayload<number[]> {
-        const numbers = this.getDrawnNumbers()
+        // const numbers = this.getDrawnNumbers()
+        // return {
+        //     result: numbers,
+        //     metadata: {
+        //         total: numbers.length,
+        //     },
+        // }
         return {
-            result: numbers,
-            metadata: {
-                total: numbers.length,
-            },
+            result: [0],
         }
     }
 

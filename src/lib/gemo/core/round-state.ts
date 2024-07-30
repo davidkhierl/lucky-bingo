@@ -131,10 +131,13 @@ export class RoundState<U> {
                     return round
                 }
 
-                logger.start(`Preparing round${action.payload?.number ? ` ${action.payload.number}` : ''} ...`)
                 let _round = round.state === State.Idle ? round : (this._round = new this.roundConstructor(nanoid()))
                 _round.state = State.Preparing
                 Object.assign(_round, defu(action.payload, _round))
+
+                const timer = _round.timer ? ` timer: ${_round.timer}` : ''
+                logger.start(`Round ${_round.number} ${State[_round.state]}${timer}`)
+
                 return _round
             }
             case 'READY': {
@@ -147,8 +150,10 @@ export class RoundState<U> {
 
                 round.state = State.Ready
                 Object.assign(round, defu(action.payload, round))
+
                 const timer = round.timer ? ` timer: ${round.timer}` : ''
                 logger.info(`Round ${round.number} ${State[round.state]}${timer}`)
+
                 return round
             }
 
@@ -160,9 +165,12 @@ export class RoundState<U> {
                     return round
                 }
 
-                logger.start(`Starting round ${round.number} ...`)
                 round.state = State.Starting
                 Object.assign(round, defu(action.payload, round))
+
+                const timer = round.timer ? ` timer: ${round.timer}` : ''
+                logger.start(`Round ${round.number} ${State[round.state]}${timer}`)
+
                 return round
             }
 
@@ -176,8 +184,10 @@ export class RoundState<U> {
 
                 round.state = State.Started
                 Object.assign(round, defu(action.payload, round))
+
                 const timer = typeof round.timer !== 'undefined' ? ` timer: ${round.timer}` : ''
                 logger.info(`Round ${round.number} ${State[round.state]}${timer}`)
+
                 return round
             }
 
@@ -189,9 +199,12 @@ export class RoundState<U> {
                     return round
                 }
 
-                logger.start(`Locking round ${round.number} ...`)
                 round.state = State.Locking
                 Object.assign(round, defu(action.payload, round))
+
+                const timer = round.timer ? ` timer: ${round.timer}` : ''
+                logger.start(`Round ${round.number} ${State[round.state]}${timer}`)
+
                 return round
             }
 
@@ -205,8 +218,10 @@ export class RoundState<U> {
 
                 round.state = State.Locked
                 Object.assign(round, defu(action.payload, round))
+
                 const timer = typeof round.timer !== 'undefined' ? ` timer: ${round.timer}` : ''
                 logger.info(`Round ${round.number} ${State[round.state]}${timer}`)
+
                 return round
             }
 
@@ -218,9 +233,12 @@ export class RoundState<U> {
                     return round
                 }
 
-                logger.start(`Concluding round ${round.number}, Waiting for results ...`)
                 round.state = State.Concluding
                 Object.assign(round, defu(action.payload, round))
+
+                const timer = typeof round.timer !== 'undefined' ? ` timer: ${round.timer}` : ''
+                logger.start(`Round ${round.number} ${State[round.state]}${timer} Waiting for results`)
+
                 return round
             }
 
@@ -235,8 +253,13 @@ export class RoundState<U> {
                 round.state = State.Concluded
                 Object.assign(round, defu(action.payload, round))
                 Object.freeze(round)
+
                 const timer = typeof round.timer !== 'undefined' ? ` timer: ${round.timer}` : ''
                 logger.info(`Round ${round.number} ${State[round.state]}${timer} Result: ${round.result}`)
+
+                this.engine?.signal.next()
+                this.engine?.destroy()
+
                 return round
             }
 
@@ -341,10 +364,9 @@ export class RoundState<U> {
                 `Failed to run round because it is currently in ${State[this._round.state]} state, expected ${State[State.Idle]} or ${State[State.Concluded]} state`
             )
             logger.error(error)
-            // this.events.error(error)
             return
         }
-
+        console.log('run')
         if (this.engine) this.engine.start(this)
         else {
             await this.ready()

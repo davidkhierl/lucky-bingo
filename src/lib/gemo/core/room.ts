@@ -175,7 +175,7 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
             return
         }
 
-        logger.info(ws.data, `${ws.data.isAnonymous ? 'Spectator' : 'Player'} joined the room ${this.name}`)
+        logger.info(`${ws.data.isAnonymous ? 'Spectator' : 'Player'} joined the room ${this.name}`)
         this.pool.add(ws)
     }
 
@@ -212,7 +212,7 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
 
     private handleOnPoolSocketClose(ws: ServerWebSocket<U>, code: number, reason: string) {
         if (this.pool.remove(ws.data.sessionId)) {
-            logger.info(ws.data, `${ws.data.isAnonymous ? 'Spectator' : 'Player'} left the room`)
+            logger.info(`${ws.data.isAnonymous ? 'Spectator' : 'Player'} left the room`)
         }
     }
 
