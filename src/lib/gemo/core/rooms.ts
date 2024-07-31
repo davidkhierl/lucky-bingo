@@ -5,7 +5,8 @@ import { Commands, Room, type RoomOptions, type Server, type Store } from '..'
  * @template U - The type of user in the rooms.
  */
 export class Rooms<U> {
-    private readonly rooms = new Set<Room<U>>()
+    private readonly rooms = new Map<string, Room<U>>()
+    private readonly _listeners = new Map<string, (...args: any[]) => void>()
 
     /**
      * Creates a new room.
@@ -25,18 +26,35 @@ export class Rooms<U> {
      * @returns The created room.
      */
     public create(name: string, options?: Omit<RoomOptions<U>, 'name' | 'globalCommands' | 'store'>): Room<U> {
+        if (this.rooms.has(name)) throw new Error(`Room ${name} already exists`)
+
         const room = new Room<U>(this.server, { name, globalCommands: this.commands, store: this.store, ...options })
-        room.on('dispose', this.handleOnRoomDispose.bind(this))
-        this.rooms.add(room)
+
+        const roomCloseListener = this.onRoomCloseHandler.bind(this)
+        this._listeners.set(room.name, roomCloseListener)
+        room.on('close', roomCloseListener)
+
+        this.rooms.set(room.name, room)
+
         return room
     }
 
+    public get list() {
+        return this.rooms.values()
+    }
+
     /**
-     * Handles the 'dispose' event of a room.
-     * @param room - The room being disposed.
+     * Handles the 'close' event for a room.
+     * Removes the room from the collection and unbinds the event listener.
+     *
+     * @param room The room to handle the 'close' event for.
      */
-    private handleOnRoomDispose(room: Room<U>) {
-        this.rooms.delete(room)
-        room.off('dispose', this.handleOnRoomDispose.bind(this))
+    private onRoomCloseHandler(room: Room<U>) {
+        const roomCloseListener = this._listeners.get(room.name)
+        if (roomCloseListener) {
+            room.off('close', roomCloseListener)
+            this._listeners.delete(room.name)
+            this.rooms.delete(room.name)
+        }
     }
 }
