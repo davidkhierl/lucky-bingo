@@ -28,9 +28,13 @@ export interface GemoCreateOptions<U, C extends U> {
  */
 export class Gemo<U> {
     /**
-     * Creates a new Gemo instance.
-     * @param server - Gemo server instance.
-     * @param rooms - Rooms manager.
+     * Creates a new instance of Gemo.
+     *
+     * @param {string} name - The name of the Gemo instance.
+     * @param {Server<U>} server - The server instance.
+     * @param {Rooms<U>} rooms - The room instance.
+     * @param {Commands<U>} commands - The commands instance.
+     * @param {Store} store - The store instance.
      */
     constructor(
         public readonly name: string,
@@ -52,9 +56,10 @@ export class Gemo<U> {
     }
 
     /**
-     * Creates a new Gemo instance with the specified options.
-     * @param options - The options to configure the Gemo instance.
-     * @returns A new Gemo instance.
+     * Creates a new instance of Gemo.
+     *
+     * @param {string} name - The name of the Gemo instance.
+     * @param {GemoCreateOptions} options - The options for configuring the Gemo instance.
      */
     public static create<T, C extends T>(name: string, options: GemoCreateOptions<T, C>) {
         const store = options.store ?? new InMemoryStore(name)
