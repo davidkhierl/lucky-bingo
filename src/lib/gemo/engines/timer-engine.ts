@@ -1,3 +1,4 @@
+import { nanoid } from 'nanoid'
 import {
     BehaviorSubject,
     identity,
@@ -24,13 +25,14 @@ export interface TimerEngineOptions {
 }
 
 export class TimerEngine<U> implements Engine<U> {
+    public readonly id = nanoid()
     public readonly duration: number
     public readonly frequency: number
     public readonly lockAt: number
     public readonly control: TimerEngineType
     public readonly signal = new Subject<void>()
-    private readonly timerState = new BehaviorSubject<boolean>(true)
-    private roundCycle?: Subscription
+    private readonly _pause = new BehaviorSubject<boolean>(true)
+    private _cycle?: Subscription
 
     constructor(options: TimerEngineOptions) {
         this.duration = options.duration
@@ -40,22 +42,28 @@ export class TimerEngine<U> implements Engine<U> {
     }
 
     public async start(round: RoundState<U>) {
-        console.log('start', this.signal.closed, this.timerState.closed)
-        if (this.signal.closed && this.timerState.closed) throw new GemoError('Engine is already destroyed')
+        if (this.signal.closed || this._pause.closed) {
+            const error = new GemoError(`Error starting ${TimerEngine.name} ${this.id} already destroyed`)
+            logger.error(error.message)
+            return
+        }
 
-        if (this.roundCycle && !this.roundCycle.closed)
-            throw new GemoError('Engine is still processing an active round cycle')
+        if (this._cycle && !this._cycle.closed) {
+            const error = new GemoError(`Fail to start ${TimerEngine.name} is still processing an active round`)
+            logger.fail(error.message)
+            return
+        }
 
-        return (this.roundCycle = interval(this.frequency)
+        return (this._cycle = interval(this.frequency)
             .pipe(
                 takeUntil(this.signal),
-                switchMap(() => this.timerState.pipe(takeWhile((state) => state))),
+                switchMap(() => this._pause.pipe(takeWhile((state) => state))),
                 scan((currentTimer) => --currentTimer, this.duration + 1),
                 takeWhile((timer) => timer >= 0),
                 tap(async (timer) => {
-                    this.timerState.next(false)
+                    this._pause.next(false)
                     await this.handleTimer(timer, round)
-                    this.timerState.next(true)
+                    this._pause.next(true)
                 }),
                 tap({
                     complete: () => {
@@ -97,10 +105,10 @@ export class TimerEngine<U> implements Engine<U> {
     }
 
     public destroy(): void {
-        // TODO
-        console.log('destroy')
-        this.signal.complete()
-        this.timerState.complete()
-        if (this.roundCycle) this.roundCycle.unsubscribe()
+        if (this.signal.closed && this._pause.closed) return
+        if (this._cycle) this._cycle.unsubscribe()
+        this._pause.unsubscribe()
+        this.signal.unsubscribe()
+        logger.debug(`${TimerEngine.name} ${this.id} destroyed`)
     }
 }
