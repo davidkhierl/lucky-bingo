@@ -1,28 +1,50 @@
-import { kebabCase } from 'lodash'
-import type { Store } from './store'
+import { Store } from './store'
 
-export class InMemoryStore implements Store {
-    public readonly prefix: string
-    private store: Map<string, any> = new Map()
+export class InMemoryStore extends Store {
+    private store: Map<string, string | number> = new Map()
 
     constructor(prefix: string) {
-        this.prefix = kebabCase(prefix)
+        super(prefix)
     }
 
-    public set<D = any>(key: string, value: D): D | Promise<D> {
+    decr(key: string): Promise<number> {
+        let value = this.store.get(this.keyConstructor(key))
+        if (!value) throw new Error('Value is not defined')
+        else if (typeof value !== 'number' || isNaN(value)) throw new Error('Value is not a number')
+        --value
         this.store.set(this.keyConstructor(key), value)
-        return value
+        return new Promise((resolve) => resolve(value))
     }
 
-    public get<D = any>(key: string): (D | undefined) | Promise<D | undefined> {
-        return this.store.get(this.keyConstructor(key))
+    public delete(key: string): Promise<string | null> {
+        let _value: string | null = null
+        const value = this.store.get(this.keyConstructor(key))
+        if (value && typeof value === 'number') _value = value.toString()
+        const del = this.store.delete(this.keyConstructor(key))
+        if (!del) _value = null
+        return new Promise((resolve) => resolve(_value))
     }
 
-    public delete(key: string): boolean | Promise<boolean> {
-        return this.store.delete(this.keyConstructor(key))
+    public get(key: string): Promise<string | null> {
+        let _value: string | null = null
+        let value = this.store.get(this.keyConstructor(key))
+        if (value && typeof value === 'number') _value = value.toString()
+        return new Promise((resolve) => resolve(_value))
     }
 
-    private keyConstructor(key: string) {
-        return `${this.prefix}:${key}`
+    incr(key: string): Promise<number> {
+        let value = this.store.get(this.keyConstructor(key))
+        if (!value) {
+            value = 1
+            this.store.set(this.keyConstructor(key), value)
+        } else if (typeof value !== 'number') throw new Error('Value is not a number')
+        ++value
+        this.store.set(this.keyConstructor(key), value)
+        return new Promise((resolve) => resolve(value))
+    }
+
+    public set(key: string, value: string): Promise<string> {
+        this.store.set(this.keyConstructor(key), value)
+        return new Promise((resolve) => resolve(value))
     }
 }
