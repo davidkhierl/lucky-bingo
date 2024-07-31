@@ -1,6 +1,7 @@
 import type { Server as BunServer } from 'bun'
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:stream'
+import { from, tap } from 'rxjs'
 import type { Constructor } from 'type-fest'
 import {
     Commands,
@@ -62,8 +63,12 @@ export interface RoomOptions<U> {
     /**
      * Whether to ignore global commands.
      */
-
     ignoreGlobalCommands?: boolean
+
+    /**
+     * Store instance.
+     */
+    store: Store
 
     /**
      * Room round.
@@ -71,10 +76,8 @@ export interface RoomOptions<U> {
     round?: Constructor<Round>
 
     /**
-     * Store instance.
+     * Round engine.
      */
-    store: Store
-
     engine?: Engine<U>
 }
 
@@ -85,7 +88,7 @@ export interface RoomEventMap<U> {
     /**
      * Triggered when the room is disposed.
      */
-    dispose: [room: Room<U>]
+    close: [room: Room<U>]
 }
 
 /**
@@ -100,13 +103,16 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
     public readonly maxSpectators: number
     public readonly autoJoin: boolean
     public readonly pool: Pool<U>
-    private readonly _server: BunServer
-    private readonly globalCommands?: Commands<U>
-    private readonly ignoreGlobalCommands: boolean
     public readonly commands: Commands<U>
-    private readonly roundConstructor?: Constructor<Round>
-    private readonly roundState?: RoundState<U>
-    private readonly store: Store
+    private readonly _server: BunServer
+    private readonly _globalCommands?: Commands<U>
+    private readonly _ignoreGlobalCommands: boolean
+    private readonly _round?: Constructor<Round>
+    private readonly _state?: RoundState<U>
+    private readonly _store: Store
+    private _engine?: Engine<U>
+    private _closed = false
+    private _listeners = new Map<string, (...args: any[]) => void>()
 
     /**
      * Creates a new Room instance.
@@ -124,59 +130,54 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
         this.allowSpectators = options.allowSpectators ?? true
         this.maxSpectators = options.maxSpectators ?? Infinity
         this.autoJoin = !!options.autoJoin
-        this.globalCommands = options.globalCommands
-        this.ignoreGlobalCommands = !!options.ignoreGlobalCommands
-        this.commands = new Commands<U>()
-        this.roundConstructor = options.round
-        this.store = options.store
-
-        if (this.roundConstructor)
-            this.roundState = new RoundState(this, this.store, this.roundConstructor, options.engine)
-
         this._server = this.server.getServer()
-        this._server.publish(this.name, `Room ${this.name} created`)
-
         this.pool = new Pool<U>(this.name)
-        this.server.on('close', this.handleOnPoolSocketClose.bind(this))
+        this.commands = new Commands<U>()
+        this._globalCommands = options.globalCommands
+        this._ignoreGlobalCommands = !!options.ignoreGlobalCommands
+        this._round = options.round
+        this._store = options.store
+        this._engine = options.engine
+        if (this._round) this._state = new RoundState(this, this._store, this._round, this._engine)
 
+        this._init()
+    }
+
+    private _init() {
+        /**
+         * Publish a message to the room channel when the room is created.
+         */
+        this._server.publish(this.name, `Room ${this.name} created`)
         logger.info(`Room ${this.name} created`)
+
+        /**
+         * Listen for socket close events.
+         */
+        const serverCloseListener = this._onPoolSocketClose.bind(this)
+        this.server.on('close', serverCloseListener)
+        this._listeners.set('close', serverCloseListener)
 
         /**
          * Listen for incoming messages from the room.
          */
-        this.server.on('message', this.handleOnMessage.bind(this))
+        const serverMessageListener = this._onMessageHandler.bind(this)
+        this.server.on('message', serverMessageListener)
+        this._listeners.set('message', serverMessageListener)
 
         /**
-         * If auto join is enabled, listen for incoming connections and join them to the room.
+         * If auto-join is enabled, listen for incoming connections and join them to the room.
          */
         if (this.autoJoin) {
             logger.info(`Auto join enabled for room ${this.name}, manually joining is disabled`)
-            this.server.on('connection', this.handleAutoJoin.bind(this))
+            const serverConnectionListener = this._autoJoinHandler.bind(this)
+            this.server.on('connection', serverConnectionListener)
+            this._listeners.set('connection', serverConnectionListener)
         }
     }
 
     public get round() {
-        if (this.roundState) return this.roundState
+        if (this._state) return this._state
         else throw new GemoError(`Round is not enabled for room ${this.name}`)
-    }
-
-    private _join(ws: ServerWebSocket<U>) {
-        if (ws.data.isAnonymous) {
-            if (!this.allowSpectators) {
-                ws.close(1000, 'Spectators are not allowed')
-                return
-            }
-            if (this.pool.spectatorsCount >= this.maxSpectators) {
-                ws.close(1000, 'Room is full')
-                return
-            }
-        } else if (this.pool.playersCount >= this.maxPlayers) {
-            ws.close(1000, 'Room is full')
-            return
-        }
-
-        logger.info(`${ws.data.isAnonymous ? 'Spectator' : 'Player'} joined the room ${this.name}`)
-        this.pool.add(ws)
     }
 
     /**
@@ -200,32 +201,68 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
         this._server.publish(this.name, data)
     }
 
-    private handleOnMessage(ws: ServerWebSocket<U>, message: string | Buffer) {
+    private _join(ws: ServerWebSocket<U>) {
+        if (ws.data.isAnonymous) {
+            if (!this.allowSpectators) {
+                ws.close(1000, 'Spectators are not allowed')
+                return
+            }
+            if (this.pool.spectatorsCount >= this.maxSpectators) {
+                ws.close(1000, 'Room is full')
+                return
+            }
+        } else if (this.pool.playersCount >= this.maxPlayers) {
+            ws.close(1000, 'Room is full')
+            return
+        }
+
+        logger.info(`${ws.data.isAnonymous ? 'Spectator' : 'Player'} joined the room ${this.name}`)
+        this.pool.add(ws)
+    }
+
+    private _onMessageHandler(ws: ServerWebSocket<U>, message: string | Buffer) {
         if (!this.commands.execute(ws, message, this)) {
-            if (!this.ignoreGlobalCommands) this.globalCommands?.execute(ws, message, this)
+            if (!this._ignoreGlobalCommands) this._globalCommands?.execute(ws, message, this)
         }
     }
 
-    private handleAutoJoin(ws: ServerWebSocket<U>) {
+    private _autoJoinHandler(ws: ServerWebSocket<U>) {
         if (this.autoJoin) this._join(ws)
     }
 
-    private handleOnPoolSocketClose(ws: ServerWebSocket<U>, code: number, reason: string) {
+    private _onPoolSocketClose(ws: ServerWebSocket<U>, code: number, reason: string) {
         if (this.pool.remove(ws.data.sessionId)) {
             logger.info(`${ws.data.isAnonymous ? 'Spectator' : 'Player'} left the room`)
         }
     }
 
     /**
-     * Disposes the room and cleans up resources.
+     * Closes the room.
      */
-    public dispose() {
-        this.server.off('message', this.handleOnMessage.bind(this))
-        if (this.autoJoin) this.server.off('connection', this.handleAutoJoin.bind(this))
+    public close() {
+        if (this._closed) return
+        from(this.pool.entries)
+            .pipe(tap(([_, ws]) => ws.close(1001, 'Room closed')))
+            .subscribe({
+                complete: () => {
+                    const closeListener = this._listeners.get('close')
+                    if (closeListener) this.server.off('close', closeListener)
 
-        this.pool.forEach((ws) => ws.close(1001, 'Room disposed'))
-        this.server.off('close', this.handleOnPoolSocketClose.bind(this))
-        this.emit('dispose', this)
-        logger.info(`Room ${this.name} disposed`)
+                    const messageListener = this._listeners.get('message')
+                    if (messageListener) this.server.off('message', messageListener)
+
+                    if (this.autoJoin) {
+                        const connectionListener = this._listeners.get('connection')
+                        if (connectionListener) this.server.off('connection', connectionListener)
+                    }
+
+                    this._engine?.destroy()
+                    this._state?.destroy()
+
+                    logger.info(`Room ${this.name} closed`)
+                    this.emit('close', this)
+                    this._closed = true
+                },
+            })
     }
 }
