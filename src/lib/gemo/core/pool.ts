@@ -52,6 +52,13 @@ export class Pool<U> {
     }
 
     /**
+     * Gets an iterator for the sockets in the pool.
+     */
+    public get entries() {
+        return this.sockets.entries()
+    }
+
+    /**
      * Executes a callback function for sockets in the pool.
      * @param callback The callback function to execute for each socket.
      */
