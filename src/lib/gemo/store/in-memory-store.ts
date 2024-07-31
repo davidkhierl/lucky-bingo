@@ -3,7 +3,7 @@ import { Store } from './store'
 export class InMemoryStore extends Store {
     private store: Map<string, string | number> = new Map()
 
-    constructor(prefix: string) {
+    constructor(prefix?: string) {
         super(prefix)
     }
 
@@ -38,7 +38,7 @@ export class InMemoryStore extends Store {
             value = 1
             this.store.set(this.keyConstructor(key), value)
         } else if (typeof value !== 'number') throw new Error('Value is not a number')
-        ++value
+        else ++value
         this.store.set(this.keyConstructor(key), value)
         return new Promise((resolve) => resolve(value))
     }

@@ -1,4 +1,5 @@
 import { kebabCase } from 'lodash'
+import { nanoid } from 'nanoid'
 
 export abstract class Store {
     /**
@@ -6,8 +7,8 @@ export abstract class Store {
      */
     public readonly prefix: string
 
-    protected constructor(prefix: string) {
-        this.prefix = kebabCase(prefix)
+    protected constructor(prefix?: string) {
+        this.prefix = prefix ? kebabCase(prefix) : nanoid()
     }
 
     /**
@@ -55,6 +56,6 @@ export abstract class Store {
      * @return {string} The constructed key.
      */
     protected keyConstructor(key: string): string {
-        return `${this.prefix}:${key}`
+        return `gemo:${this.prefix}:${key}`
     }
 }

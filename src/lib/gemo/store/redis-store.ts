@@ -4,7 +4,7 @@ import { Store } from '..'
 export class RedisStore extends Store {
     constructor(
         private readonly redis: Redis,
-        prefix: string
+        prefix?: string
     ) {
         super(prefix)
     }
