@@ -1,12 +1,12 @@
 import type { Promisable } from 'type-fest'
 import {
-    State,
     type ConcludePayload,
     type LockPayload,
     type ReadyPayload,
     type StartPayload,
+    State,
     type TickPayload,
-} from './round-state'
+} from '..'
 
 export type RoundMetadata = Record<string, any>
 
@@ -24,10 +24,10 @@ export abstract class Round<R = unknown> {
         this.state = State.Idle
     }
 
-    public abstract onReady(): Promisable<ReadyPayload | undefined>
-    public abstract onStart(metadata?: RoundMetadata): StartPayload | undefined
-    public abstract onLock(metadata?: RoundMetadata): LockPayload | undefined
-    public abstract onConclude(metadata?: RoundMetadata): Promisable<ConcludePayload<R>>
+    public onReady?(): Promisable<ReadyPayload | undefined>
+    public onStart?(metadata?: RoundMetadata): StartPayload | undefined
+    public onLock?(metadata?: RoundMetadata): LockPayload | undefined
+    public onConclude?(metadata?: RoundMetadata): Promisable<ConcludePayload<R>>
     public onTick?(metadata?: RoundMetadata): TickPayload | undefined
 
     public toJSON() {
