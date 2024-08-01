@@ -190,6 +190,17 @@ export class RoundState<U> {
                 return round
             }
 
+            case 'ERROR': {
+                round.state = State.Error
+                Object.assign(round, defu(action.payload, round))
+                Object.freeze(round)
+                logger.error(
+                    `Round ${round.number} ${State[round.state]}${action.payload.error ? ` Error: ${action.payload.error}` : ''}`
+                )
+                this.engine?.signal.next()
+                return round
+            }
+
             default:
                 return round
         }
@@ -274,16 +285,25 @@ export class RoundState<U> {
         })
 
         if (this._round.state !== State.Concluding) return
-        const _roundPayload = this._round.onConclude
-            ? defu(payload, await this._round.onConclude(this._round.metadata))
-            : payload
-        this._action.next({
-            type: 'CONCLUDE',
-            payload: {
-                result: null,
-                ..._roundPayload,
-            },
-        })
+        try {
+            const _roundPayload = this._round.onConclude
+                ? defu(payload, await this._round.onConclude(this._round.metadata))
+                : payload
+            this._action.next({
+                type: 'CONCLUDE',
+                payload: {
+                    result: null,
+                    ..._roundPayload,
+                },
+            })
+        } catch (error) {
+            this._action.next({
+                type: 'ERROR',
+                payload: {
+                    error,
+                },
+            })
+        }
     }
 
     /**

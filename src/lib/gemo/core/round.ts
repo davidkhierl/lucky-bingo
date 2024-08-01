@@ -10,6 +10,16 @@ import {
 
 export type RoundMetadata = Record<string, any>
 
+export interface RoundJson {
+    id: string
+    number: number
+    state: State
+    timer?: number
+    result?: unknown
+    metadata?: RoundMetadata
+    error?: string
+}
+
 export abstract class Round<R = unknown> {
     public readonly id: string
     public number: number
@@ -17,6 +27,7 @@ export abstract class Round<R = unknown> {
     public state: State
     public result?: R
     public metadata?: RoundMetadata
+    public error?: string
 
     constructor(id: string) {
         this.id = id
@@ -30,14 +41,19 @@ export abstract class Round<R = unknown> {
     public onConclude?(metadata?: RoundMetadata): Promisable<ConcludePayload<R>>
     public onTick?(metadata?: RoundMetadata): TickPayload | undefined
 
-    public toJSON() {
-        return {
+    public get value() {
+        const round = {
             id: this.id,
             number: this.number,
             state: this.state,
-            timer: this.timer,
-            result: this.result,
-            metadata: this.metadata,
-        }
+            result: null,
+        } as RoundJson
+
+        if (this.timer) round.timer = this.timer
+        if (this.result) round.result = this.result
+        if (this.metadata) round.metadata = this.metadata
+        if (this.error) round.error = this.error
+
+        return round
     }
 }

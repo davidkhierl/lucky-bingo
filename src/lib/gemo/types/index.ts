@@ -12,6 +12,7 @@ export enum State {
     Locked,
     Concluding,
     Concluded,
+    Error,
 }
 
 export type ActionType =
@@ -24,6 +25,7 @@ export type ActionType =
     | 'CONCLUDING'
     | 'CONCLUDE'
     | 'TICK'
+    | 'ERROR'
 
 export interface Action {
     type: ActionType
@@ -92,6 +94,13 @@ export interface Tick extends Action {
     payload: TickPayload
 }
 
+export type ErrorPayload = { error?: unknown }
+
+export interface ErrorRound extends Action {
+    type: 'ERROR'
+    payload: ErrorPayload
+}
+
 export type StateAction<R = any> =
     | Preparing
     | Ready
@@ -102,3 +111,4 @@ export type StateAction<R = any> =
     | Concluding<R>
     | Conclude<R>
     | Tick
+    | ErrorRound
