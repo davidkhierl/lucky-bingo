@@ -171,7 +171,7 @@ export class RoundState<U> {
                 const timer = typeof round.timer !== 'undefined' ? ` timer: ${round.timer}` : ''
                 logger.info(`Round ${round.number} ${State[round.state]}${timer} Result: ${round.result}`)
 
-                this.engine?.signal.next()
+                this.engine?.complete()
 
                 return round
             }
@@ -197,7 +197,7 @@ export class RoundState<U> {
                 logger.error(
                     `Round ${round.number} ${State[round.state]}${action.payload.error ? ` Error: ${action.payload.error}` : ''}`
                 )
-                this.engine?.signal.next()
+                this.engine?.complete()
                 return round
             }
 

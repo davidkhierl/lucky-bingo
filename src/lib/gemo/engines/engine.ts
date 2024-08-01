@@ -1,9 +1,9 @@
-import type { Subject, Subscription } from 'rxjs'
+import type { Subscription } from 'rxjs'
 import type { Promisable } from 'type-fest'
-import type { RoundState } from '../core/round-state'
+import type { RoundState } from '..'
 
 export interface Engine<U> {
     start(round: RoundState<U>): Promisable<Subscription | void>
-    signal: Subject<void>
+    complete(): void
     destroy(): void
 }

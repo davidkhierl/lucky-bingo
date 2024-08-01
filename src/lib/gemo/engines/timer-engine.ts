@@ -30,7 +30,7 @@ export class TimerEngine<U> implements Engine<U> {
     public readonly frequency: number
     public readonly lockAt: number
     public readonly control: TimerEngineType
-    public readonly signal = new Subject<void>()
+    private readonly signal = new Subject<void>()
     private readonly _pause = new BehaviorSubject<boolean>(true)
     private _cycle?: Subscription
 
@@ -102,6 +102,10 @@ export class TimerEngine<U> implements Engine<U> {
         if (timer > 0) {
             round.tick({ timer })
         }
+    }
+
+    public complete() {
+        this.signal.next()
     }
 
     public destroy(): void {
