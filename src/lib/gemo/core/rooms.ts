@@ -1,4 +1,4 @@
-import { Commands, Room, type RoomOptions, type Server, type Store } from '..'
+import { Commands, Room, type RoomOptions, Server, Store } from '..'
 
 /**
  * Represents a collection of rooms.
@@ -9,9 +9,11 @@ export class Rooms<U> {
     private readonly _listeners = new Map<string, (...args: any[]) => void>()
 
     /**
-     * Creates a new room.
+     * Creates a new instance of Rooms.
+     *
      * @param server - The server instance.
-     * @returns The created room.
+     * @param store - The store instance.
+     * @param commands - Room commands.
      */
     constructor(
         private readonly server: Server<U>,
@@ -39,8 +41,13 @@ export class Rooms<U> {
         return room
     }
 
-    public get list() {
-        return this.rooms.values()
+    /**
+     * Retrieves the list of rooms.
+     *
+     * @return {Array} The list of rooms as an array.
+     */
+    public get list(): Room<U>[] {
+        return Array.from(this.rooms.values())
     }
 
     /**
