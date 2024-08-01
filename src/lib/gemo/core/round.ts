@@ -10,7 +10,7 @@ import {
 
 export type RoundMetadata = Record<string, any>
 
-export interface RoundJson {
+export interface RoundValue {
     id: string
     number: number
     state: State
@@ -25,7 +25,7 @@ export abstract class Round<R = unknown> {
     public number: number
     public timer?: number
     public state: State
-    public result?: R
+    public result: R | null = null
     public metadata?: RoundMetadata
     public error?: string
 
@@ -36,21 +36,20 @@ export abstract class Round<R = unknown> {
     }
 
     public onReady?(): Promisable<ReadyPayload | undefined>
-    public onStart?(metadata?: RoundMetadata): StartPayload | undefined
-    public onLock?(metadata?: RoundMetadata): LockPayload | undefined
-    public onConclude?(metadata?: RoundMetadata): Promisable<ConcludePayload<R>>
-    public onTick?(metadata?: RoundMetadata): TickPayload | undefined
+    public onStart?(metadata?: RoundMetadata): Promisable<StartPayload | undefined>
+    public onLock?(metadata?: RoundMetadata): Promisable<LockPayload | undefined>
+    public abstract onConclude(metadata?: RoundMetadata): Promisable<ConcludePayload<R>>
+    public onTick?(metadata?: RoundMetadata): Promisable<TickPayload | undefined>
 
     public get value() {
         const round = {
             id: this.id,
             number: this.number,
             state: this.state,
-            result: null,
-        } as RoundJson
+            result: this.result,
+        } as RoundValue
 
         if (this.timer) round.timer = this.timer
-        if (this.result) round.result = this.result
         if (this.metadata) round.metadata = this.metadata
         if (this.error) round.error = this.error
 

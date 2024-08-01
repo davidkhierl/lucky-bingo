@@ -89,13 +89,13 @@ export class TimerEngine<U> implements Engine<U> {
                 round.lock({ timer })
             }
             if (this.lockAt === 0) {
-                await round.conclude({ timer })
+                round.conclude({ timer })
             }
             return
         }
 
         if (timer === 0 && round.events.value.state !== State.Concluded) {
-            await round.conclude({ timer })
+            round.conclude({ timer })
             return
         }
 

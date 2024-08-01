@@ -73,14 +73,14 @@ export interface Lock extends Action {
     payload?: LockPayload
 }
 
-export type ConcludingPayload<R> = Pick<Round<R>, 'timer' | 'result' | 'metadata'>
+export type ConcludingPayload<R> = Pick<Round<R>, 'timer' | 'metadata'>
 
 export interface Concluding<R> extends Action {
     type: 'CONCLUDING'
     payload?: ConcludingPayload<R>
 }
 
-export type ConcludePayload<R> = Pick<Round<R>, 'timer' | 'result' | 'metadata'>
+export type ConcludePayload<R> = Pick<Round<R>, 'timer' | 'metadata'> & Required<Pick<Round, 'result'>>
 
 export interface Conclude<R> extends Action {
     type: 'CONCLUDE'

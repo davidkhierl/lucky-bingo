@@ -19,7 +19,25 @@ const gemo = Gemo.create('Luck Bingo', {
 const room = gemo.rooms.create('main', {
     autoJoin: true,
     round: LuckyBingoRound,
-    engine: new TimerEngine({ duration: 10, lockAt: 5, control: { type: 'continues' } }),
+    engine: new TimerEngine({ duration: 10, lockAt: 5, control: { type: 'single' } }),
 })
 
 void room.round.run()
+
+// import { concatMap, from } from 'rxjs'
+//
+// function willComplete(duration: number) {
+//     return new Promise<number>((resolve) => {
+//         setTimeout(() => {
+//             resolve(duration)
+//         }, duration)
+//     })
+// }
+//
+// from([willComplete(2000), willComplete(10000), willComplete(3000)])
+//     .pipe(concatMap((promise) => promise))
+//     .subscribe({
+//         next: (value) => console.log('Next', value),
+//         complete: () => console.log('Complete'),
+//         error: (err) => console.error(err),
+//     })

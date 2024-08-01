@@ -1,6 +1,6 @@
 import defu from 'defu'
 import { nanoid } from 'nanoid'
-import { BehaviorSubject, scan, Subject } from 'rxjs'
+import { BehaviorSubject, concatMap, Observable, of, retry, scan, Subject, tap } from 'rxjs'
 import type { Constructor } from 'type-fest'
 import {
     GemoError,
@@ -38,9 +38,9 @@ export class RoundState<U> {
     private _actionHandler(round: Round, action: StateAction): Round {
         switch (action.type) {
             case 'PREPARING': {
-                if (round.state !== State.Idle && round.state !== State.Concluded) {
+                if (round.state !== State.Idle && round.state !== State.Concluded && round.state !== State.Error) {
                     logger.fail(
-                        `Failed to prepare round because it is currently in ${State[round.state]} state, expected ${State[State.Idle]} or ${State[State.Concluded]} state`
+                        `Failed to prepare round because it is currently in ${State[round.state]} state, expected ${State[State.Idle]} or ${State[State.Concluded]} state or ${State[State.Error]} state`
                     )
                     return round
                 }
@@ -195,7 +195,7 @@ export class RoundState<U> {
                 Object.assign(round, defu(action.payload, round))
                 Object.freeze(round)
                 logger.error(
-                    `Round ${round.number} ${State[round.state]}${action.payload.error ? ` Error: ${action.payload.error}` : ''}`
+                    `Round ${round.number} ${State[round.state]}${action.payload.error ? `: ${action.payload.error}` : ''}`
                 )
                 this.engine?.complete()
                 return round
@@ -278,32 +278,36 @@ export class RoundState<U> {
      *
      * @return {Promise<void>} - A promise that resolves when the conclude action is completed.
      */
-    public async conclude<T>(payload?: Omit<ConcludePayload<T>, 'result'>): Promise<void> {
+    public conclude(
+        payload?: Omit<ConcludePayload<unknown>, 'result'>
+    ): Observable<ConcludePayload<unknown>> | undefined {
         this._action.next({
             type: 'CONCLUDING',
             payload,
         })
 
         if (this._round.state !== State.Concluding) return
-        try {
-            const _roundPayload = this._round.onConclude
-                ? defu(payload, await this._round.onConclude(this._round.metadata))
-                : payload
-            this._action.next({
-                type: 'CONCLUDE',
-                payload: {
-                    result: null,
-                    ..._roundPayload,
+
+        return of(this._round.onConclude).pipe(
+            concatMap(async (concludePayload) => concludePayload(this._round.metadata)),
+            retry({ count: 3, delay: 1 }),
+            tap({
+                next: (payload) => {
+                    this._action.next({
+                        type: 'CONCLUDE',
+                        payload,
+                    })
+                },
+                error: (error) => {
+                    this._action.next({
+                        type: 'ERROR',
+                        payload: {
+                            error: error instanceof Error ? error.message : 'Failed to retrieve round results.',
+                        },
+                    })
                 },
             })
-        } catch (error) {
-            this._action.next({
-                type: 'ERROR',
-                payload: {
-                    error,
-                },
-            })
-        }
+        )
     }
 
     /**
