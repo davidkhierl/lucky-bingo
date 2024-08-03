@@ -6,6 +6,7 @@ import type { Constructor } from 'type-fest'
 import {
     Commands,
     GemoError,
+    logger,
     Pool,
     Round,
     RoundState,
@@ -15,12 +16,11 @@ import {
     type ServerWebSocket,
     type Store,
 } from '..'
-import { logger } from '../utils/logger'
 
 /**
  * Options for creating a Room.
  */
-export interface RoomOptions<U> {
+export interface RoomOptions<R, U> {
     /**
      * Name of the room.
      * This is also used as the channel name for the room.
@@ -50,7 +50,7 @@ export interface RoomOptions<U> {
     maxSpectators?: number
 
     /**
-     * Whether to automatically join players to the room whenever a new connection is established from server.
+     * Whether to automatically join players to the room whenever a new connection is established from the server.
      * If set to true, manual joining is disabled.
      */
     autoJoin?: boolean
@@ -73,29 +73,29 @@ export interface RoomOptions<U> {
     /**
      * Room round.
      */
-    round?: Constructor<Round>
+    round?: Constructor<Round<R>>
 
     /**
      * Round engine.
      */
-    engine?: Engine<U>
+    engine?: Engine<R, U>
 }
 
 /**
  * Room events.
  */
-export interface RoomEventMap<U> {
+export interface RoomEventMap<R, U> {
     /**
-     * Triggered when the room is disposed.
+     * Triggered when the room is closed.
      */
-    close: [room: Room<U>]
+    close: [room: Room<R, U>]
 }
 
 /**
  * The Room class is designed to manage and organize game sessions,
  * handling player and spectator limits, and facilitating events within the game room.
  */
-export class Room<U> extends EventEmitter<RoomEventMap<U>> {
+export class Room<R, U> extends EventEmitter<RoomEventMap<R, U>> {
     public readonly id = randomUUID()
     public readonly name: string
     public readonly maxPlayers: number
@@ -107,10 +107,10 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
     private readonly _server: BunServer
     private readonly _globalCommands?: Commands<U>
     private readonly _ignoreGlobalCommands: boolean
-    private readonly _round?: Constructor<Round>
-    private readonly _state?: RoundState<U>
+    private readonly _Round?: Constructor<Round<R>>
+    private readonly _state?: RoundState<R, U>
     private readonly _store: Store
-    private _engine?: Engine<U>
+    private readonly _engine?: Engine<R, U>
     private _closed = false
     private _listeners = new Map<string, (...args: any[]) => void>()
 
@@ -121,7 +121,7 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
      */
     constructor(
         private readonly server: Server<U>,
-        options: RoomOptions<U>
+        options: RoomOptions<R, U>
     ) {
         super()
 
@@ -135,10 +135,10 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
         this.commands = new Commands<U>()
         this._globalCommands = options.globalCommands
         this._ignoreGlobalCommands = !!options.ignoreGlobalCommands
-        this._round = options.round
+        this._Round = options.round
         this._store = options.store
         this._engine = options.engine
-        if (this._round) this._state = new RoundState(this, this._store, this._round, this._engine)
+        if (this._Round) this._state = new RoundState(this, this._store, this._Round, this._engine)
 
         this._init()
     }
@@ -230,7 +230,7 @@ export class Room<U> extends EventEmitter<RoomEventMap<U>> {
         if (this.autoJoin) this._join(ws)
     }
 
-    private _onPoolSocketClose(ws: ServerWebSocket<U>, code: number, reason: string) {
+    private _onPoolSocketClose(ws: ServerWebSocket<U>) {
         if (this.pool.remove(ws.data.sessionId)) {
             logger.info(`${ws.data.isAnonymous ? 'Spectator' : 'Player'} left the room`)
         }
