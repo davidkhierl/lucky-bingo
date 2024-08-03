@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid'
 import {
     BehaviorSubject,
+    firstValueFrom,
     identity,
     interval,
     repeat,
@@ -24,7 +25,7 @@ export interface TimerEngineOptions {
     control?: TimerEngineType
 }
 
-export class TimerEngine<U> implements Engine<U> {
+export class TimerEngine<R, U> implements Engine<R, U> {
     public readonly id = nanoid()
     public readonly duration: number
     public readonly frequency: number
@@ -41,7 +42,7 @@ export class TimerEngine<U> implements Engine<U> {
         this.control = options.control || { type: 'single' }
     }
 
-    public async start(round: RoundState<U>) {
+    public async start(round: RoundState<R, U>) {
         if (this.signal.closed || this._pause.closed) {
             const error = new GemoError(`Error starting ${TimerEngine.name} ${this.id} already destroyed`)
             logger.error(error.message)
@@ -67,7 +68,9 @@ export class TimerEngine<U> implements Engine<U> {
                 }),
                 tap({
                     complete: () => {
-                        logger.success(`Round ${round.events.value.number} completed`)
+                        logger.success(
+                            `Round ${round.events.value.number} completed on ${State[round.events.value.state]} state`
+                        )
                     },
                 }),
                 this.control.type === 'continues'
@@ -77,10 +80,10 @@ export class TimerEngine<U> implements Engine<U> {
             .subscribe())
     }
 
-    private async handleTimer(timer: number, round: RoundState<U>) {
+    private async handleTimer(timer: number, round: RoundState<R, U>) {
         if (timer === this.duration) {
-            await round.ready()
-            round.start({ timer })
+            await firstValueFrom(round.ready())
+            if (round.events.value.state === State.Ready) round.start({ timer })
             return
         }
 
@@ -89,13 +92,13 @@ export class TimerEngine<U> implements Engine<U> {
                 round.lock({ timer })
             }
             if (this.lockAt === 0) {
-                round.conclude({ timer })
+                await firstValueFrom(round.conclude({ timer }))
             }
             return
         }
 
         if (timer === 0 && round.events.value.state !== State.Concluded) {
-            round.conclude({ timer })
+            await firstValueFrom(round.conclude({ timer }))
             return
         }
 
