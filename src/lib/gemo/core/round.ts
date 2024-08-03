@@ -31,6 +31,7 @@ export abstract class Round<R = unknown> {
     public onStart?(metadata?: RoundMetadata): OnStart<R>
     public onLock?(metadata?: RoundMetadata): OnLock<R>
     public abstract onConclude(metadata?: RoundMetadata): OnConclude<R>
+    public concludeWhen?(): boolean
     public onTick?(metadata?: RoundMetadata): OnTick<R>
 
     public get values() {
