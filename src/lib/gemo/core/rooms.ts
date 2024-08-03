@@ -5,7 +5,7 @@ import { Commands, Room, type RoomOptions, Server, Store } from '..'
  * @template U - The type of user in the rooms.
  */
 export class Rooms<U> {
-    private readonly rooms = new Map<string, Room<U>>()
+    private readonly rooms = new Map<string, Room<any, U>>()
     private readonly _listeners = new Map<string, (...args: any[]) => void>()
 
     /**
@@ -27,10 +27,10 @@ export class Rooms<U> {
      * @param options - The options for the room.
      * @returns The created room.
      */
-    public create(name: string, options?: Omit<RoomOptions<U>, 'name' | 'globalCommands' | 'store'>): Room<U> {
+    public create<R>(name: string, options?: Omit<RoomOptions<R, U>, 'name' | 'globalCommands' | 'store'>): Room<R, U> {
         if (this.rooms.has(name)) throw new Error(`Room ${name} already exists`)
 
-        const room = new Room<U>(this.server, { name, globalCommands: this.commands, store: this.store, ...options })
+        const room = new Room<R, U>(this.server, { name, globalCommands: this.commands, store: this.store, ...options })
 
         const roomCloseListener = this.onRoomCloseHandler.bind(this)
         this._listeners.set(room.name, roomCloseListener)
@@ -46,7 +46,7 @@ export class Rooms<U> {
      *
      * @return {Array} The list of rooms as an array.
      */
-    public get list(): Room<U>[] {
+    public get list(): Room<any, U>[] {
         return Array.from(this.rooms.values())
     }
 
@@ -56,7 +56,7 @@ export class Rooms<U> {
      *
      * @param room The room to handle the 'close' event for.
      */
-    private onRoomCloseHandler(room: Room<U>) {
+    private onRoomCloseHandler<R>(room: Room<R, U>) {
         const roomCloseListener = this._listeners.get(room.name)
         if (roomCloseListener) {
             room.off('close', roomCloseListener)
