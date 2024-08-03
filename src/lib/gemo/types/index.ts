@@ -1,4 +1,5 @@
 import type { Round } from '@/lib/gemo'
+import type { Promisable } from 'type-fest'
 
 export type Data = string | ArrayBufferView | ArrayBuffer | SharedArrayBuffer
 
@@ -31,84 +32,55 @@ export interface Action {
     type: ActionType
 }
 
-export type PreparingPayload = Partial<Pick<Round, 'number' | 'timer' | 'metadata'>>
+export type ActionPayload<R> = Pick<Round<R>, 'timer' | 'metadata'>
+type RoundNumber = Pick<Round, 'number'>
 
-export interface Preparing extends Action {
-    type: 'PREPARING'
-    payload?: PreparingPayload
-}
-
-export type ReadyPayload = Partial<Pick<Round, 'number' | 'timer' | 'metadata'>>
-
-export interface Ready extends Action {
-    type: 'READY'
-    payload?: ReadyPayload
-}
-
-export type StartingPayload = Pick<Round, 'timer' | 'metadata'>
-
-export interface Starting extends Action {
-    type: 'STARTING'
-    payload?: StartingPayload
-}
-
-export type StartPayload = Pick<Round, 'timer' | 'metadata'>
-
-export interface Start extends Action {
-    type: 'START'
-    payload?: StartPayload
-}
-
-export type LockingPayload = Pick<Round, 'timer' | 'metadata'>
-
-export interface Locking extends Action {
-    type: 'LOCKING'
-    payload?: LockingPayload
-}
-
-export type LockPayload = Pick<Round, 'timer' | 'metadata'>
-
-export interface Lock extends Action {
-    type: 'LOCK'
-    payload?: LockPayload
-}
-
-export type ConcludingPayload<R> = Pick<Round<R>, 'timer' | 'metadata'>
-
-export interface Concluding<R> extends Action {
-    type: 'CONCLUDING'
-    payload?: ConcludingPayload<R>
-}
-
-export type ConcludePayload<R> = Pick<Round<R>, 'timer' | 'metadata'> & Required<Pick<Round, 'result'>>
-
-export interface Conclude<R> extends Action {
-    type: 'CONCLUDE'
-    payload: ConcludePayload<R>
-}
-
-export type TickPayload = Pick<Round, 'timer' | 'metadata'>
-
-export interface Tick extends Action {
-    type: 'TICK'
-    payload: TickPayload
-}
-
+export type PreparingPayload<R> = ActionPayload<R> & Partial<RoundNumber>
+export type ReadyPayload<R> = ActionPayload<R> & Partial<RoundNumber>
+export type StartingPayload<R> = ActionPayload<R>
+export type StartPayload<R> = ActionPayload<R>
+export type LockingPayload<R> = ActionPayload<R>
+export type LockPayload<R> = ActionPayload<R>
+export type ConcludingPayload<R> = ActionPayload<R>
+export type ConcludePayload<R> = ActionPayload<R> & Pick<Round<R>, 'result'>
+export type TickPayload<R> = ActionPayload<R>
 export type ErrorPayload = { error?: unknown }
 
-export interface ErrorRound extends Action {
-    type: 'ERROR'
-    payload: ErrorPayload
+export interface PayloadAction<T extends ActionType, P> extends Action {
+    type: T
+    payload?: P
 }
 
-export type StateAction<R = any> =
-    | Preparing
-    | Ready
-    | Starting
-    | Start
-    | Locking
-    | Lock
+export type Preparing<R> = PayloadAction<'PREPARING', PreparingPayload<R>>
+export type Ready<R> = PayloadAction<'READY', ReadyPayload<R>>
+export type Starting<R> = PayloadAction<'STARTING', StartingPayload<R>>
+export type Start<R> = PayloadAction<'START', StartPayload<R>>
+export type Locking<R> = PayloadAction<'LOCKING', LockingPayload<R>>
+export type Lock<R> = PayloadAction<'LOCK', LockPayload<R>>
+export type Concluding<R> = PayloadAction<'CONCLUDING', ConcludingPayload<R>>
+export type Conclude<R> = PayloadAction<'CONCLUDE', ConcludePayload<R>>
+export type Tick<R> = PayloadAction<'TICK', TickPayload<R>>
+export type ErrorRound = PayloadAction<'ERROR', ErrorPayload>
+
+export type StateAction<R> =
+    | Preparing<R>
+    | Ready<R>
+    | Starting<R>
+    | Start<R>
+    | Locking<R>
+    | Lock<R>
     | Concluding<R>
     | Conclude<R>
-    | Tick
+    | Tick<R>
     | ErrorRound
+
+export type OnReady<R> = Promisable<ReadyPayload<R> | undefined>
+export type OnStart<R> = Promisable<StartPayload<R> | undefined>
+export type OnLock<R> = Promisable<LockPayload<R> | undefined>
+export type OnConclude<R> = Promisable<ConcludePayload<R>>
+export type OnTick<R> = Promisable<TickPayload<R> | undefined>
+
+export interface AsyncActionRetry {
+    retry: number
+    delay: number
+}
