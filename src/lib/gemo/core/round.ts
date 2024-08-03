@@ -1,14 +1,6 @@
-import type { Promisable } from 'type-fest'
-import {
-    type ConcludePayload,
-    type LockPayload,
-    type ReadyPayload,
-    type StartPayload,
-    State,
-    type TickPayload,
-} from '..'
+import { type OnConclude, type OnLock, type OnReady, type OnStart, type OnTick, State } from '..'
 
-export type RoundMetadata = Record<string, any>
+export type RoundMetadata = any
 
 export interface RoundValue {
     id: string
@@ -35,13 +27,13 @@ export abstract class Round<R = unknown> {
         this.state = State.Idle
     }
 
-    public onReady?(): Promisable<ReadyPayload | undefined>
-    public onStart?(metadata?: RoundMetadata): Promisable<StartPayload | undefined>
-    public onLock?(metadata?: RoundMetadata): Promisable<LockPayload | undefined>
-    public abstract onConclude(metadata?: RoundMetadata): Promisable<ConcludePayload<R>>
-    public onTick?(metadata?: RoundMetadata): Promisable<TickPayload | undefined>
+    public onReady?(): OnReady<R>
+    public onStart?(metadata?: RoundMetadata): OnStart<R>
+    public onLock?(metadata?: RoundMetadata): OnLock<R>
+    public abstract onConclude(metadata?: RoundMetadata): OnConclude<R>
+    public onTick?(metadata?: RoundMetadata): OnTick<R>
 
-    public get value() {
+    public get values() {
         const round = {
             id: this.id,
             number: this.number,
