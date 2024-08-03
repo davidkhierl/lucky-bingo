@@ -1,10 +1,10 @@
-import { GemoError, Round, State, type ConcludePayload, type ReadyPayload, type TickPayload } from '@/lib/gemo'
+import { Round, State } from '@/lib/gemo'
 
 export class LuckyBingoRound extends Round<number[]> {
     private numbers: number[] = []
     private drawnNumbers = new Set<number>()
 
-    public onReady(): ReadyPayload | undefined {
+    public onReady() {
         this.numbers = Array.from({ length: 75 }, (_, i) => i + 1)
         this.drawnNumbers = new Set<number>()
 
@@ -15,12 +15,7 @@ export class LuckyBingoRound extends Round<number[]> {
         }
     }
 
-    public async onConclude(): Promise<ConcludePayload<number[]>> {
-        return new Promise((_, reject) => {
-            setTimeout(() => {
-                reject(new GemoError('Failed to conclude round'))
-            }, 3000)
-        })
+    public onConclude() {
         const numbers = this._getDrawnNumbers()
         return {
             result: numbers,
@@ -30,7 +25,7 @@ export class LuckyBingoRound extends Round<number[]> {
         }
     }
 
-    public onTick(): TickPayload {
+    public onTick() {
         if (this.state === State.Locked && this.timer && this.timer % 2 === 0) this.drawNumber()
         const numbers = this._getDrawnNumbers()
         return {
