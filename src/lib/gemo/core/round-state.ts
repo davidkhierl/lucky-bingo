@@ -1,41 +1,55 @@
 import defu from 'defu'
 import { nanoid } from 'nanoid'
-import { BehaviorSubject, concatMap, Observable, of, retry, scan, Subject, tap } from 'rxjs'
+import {
+    BehaviorSubject,
+    catchError,
+    concatMap,
+    delay,
+    firstValueFrom,
+    of,
+    retry,
+    scan,
+    Subject,
+    switchMap,
+    takeWhile,
+    tap,
+} from 'rxjs'
 import type { Constructor } from 'type-fest'
 import {
     GemoError,
     logger,
     Room,
     State,
-    type ConcludePayload,
+    type AsyncActionRetry,
+    type ConcludingPayload,
     type Engine,
-    type LockPayload,
-    type ReadyPayload,
+    type LockingPayload,
+    type PreparingPayload,
     type Round,
-    type StartPayload,
+    type StartingPayload,
     type StateAction,
     type Store,
     type TickPayload,
 } from '..'
 
-export class RoundState<U> {
-    public readonly events: BehaviorSubject<Round>
-    private readonly _action = new Subject<StateAction>()
-    private _round: Round
+export class RoundState<R, U> {
+    public readonly events: BehaviorSubject<Round<R>>
+    private readonly _action = new Subject<StateAction<R>>()
+    private _round: Round<R>
     private _destroyed = false
 
     constructor(
-        private readonly room: Room<U>,
+        private readonly room: Room<R, U>,
         private readonly store: Store,
-        private readonly Round: Constructor<Round, [string]>,
-        private readonly engine?: Engine<U>
+        private readonly Round: Constructor<Round<R>, [string]>,
+        private readonly engine?: Engine<R, U>
     ) {
         this._round = new this.Round(nanoid())
-        this.events = new BehaviorSubject<Round>(this._round)
+        this.events = new BehaviorSubject<Round<R>>(this._round)
         this._action.pipe(scan(this._actionHandler.bind(this), this._round)).subscribe(this.events)
     }
 
-    private _actionHandler(round: Round, action: StateAction): Round {
+    private _actionHandler(round: Round<R>, action: StateAction<R>): Round<R> {
         switch (action.type) {
             case 'PREPARING': {
                 if (round.state !== State.Idle && round.state !== State.Concluded && round.state !== State.Error) {
@@ -74,7 +88,7 @@ export class RoundState<U> {
             case 'STARTING': {
                 if (round.state !== State.Ready) {
                     logger.fail(
-                        `Failed to start round ${round.number} because it is currently in ${State[round.state]} state, expected ${State[State.Ready]} state`
+                        `Starting round ${round.number} failed because it is currently in ${State[round.state]} state, expected ${State[State.Ready]} state`
                     )
                     return round
                 }
@@ -195,7 +209,7 @@ export class RoundState<U> {
                 Object.assign(round, defu(action.payload, round))
                 Object.freeze(round)
                 logger.error(
-                    `Round ${round.number} ${State[round.state]}${action.payload.error ? `: ${action.payload.error}` : ''}`
+                    `Round ${round.number} ${State[round.state]}${action.payload?.error ? `: ${action.payload.error}` : ''}`
                 )
                 this.engine?.complete()
                 return round
@@ -207,27 +221,56 @@ export class RoundState<U> {
     }
 
     /**
-     * Prepares the round with the given payload and set to ready state.
+     * Asynchronously prepares and starts a round.
      *
-     * @param {ReadyPayload} [payload] - The optional payload data to be included in the "READY" event.
-     * @returns {Promise<void>}
+     * @param payload - The payload to be passed to the action.
+     * @param options - The options for async action retry.
      */
-    public async ready(payload?: ReadyPayload): Promise<void> {
-        const number = await this.store.incr(`${this.room.name}:round`)
-        this._action.next({
-            type: 'PREPARING',
-            payload: {
-                number,
-                ...payload,
-            },
-        })
-
-        if (this._round.state !== State.Preparing) return
-        const _roundPayload = this._round.onReady ? defu(payload, this._round.onReady()) : payload
-        this._action.next({
-            type: 'READY',
-            payload: _roundPayload,
-        })
+    public ready(payload?: PreparingPayload<R>, options?: AsyncActionRetry) {
+        return of(this.store.incr.bind(this.store)).pipe(
+            concatMap(async (preparePayload) => preparePayload(`${this.room.name}:round`)),
+            tap((number) => {
+                this._action.next({
+                    type: 'PREPARING',
+                    payload: {
+                        number,
+                        ...payload,
+                    },
+                })
+            }),
+            takeWhile(() => this._round.state === State.Preparing),
+            switchMap(() => {
+                if (!this._round.onReady) return of(undefined)
+                return of(this._round.onReady?.bind(this._round)).pipe(
+                    concatMap(async (readyPayload) => readyPayload()),
+                    retry({
+                        count: options?.retry || 3,
+                        delay: (error, retryCount) => {
+                            logger.warn(
+                                `Failed to ready round, retrying... Attempt ${retryCount}/${options?.retry || 3}`
+                            )
+                            return of(error).pipe(delay(options?.delay ? options.delay * 1000 : 0))
+                        },
+                    })
+                )
+            }),
+            tap({
+                next: (payload) => {
+                    this._action.next({
+                        type: 'READY',
+                        payload,
+                    })
+                },
+                error: (error) => {
+                    this._action.next({
+                        type: 'ERROR',
+                        payload: {
+                            error: error instanceof Error ? error.message : 'Failed to ready round.',
+                        },
+                    })
+                },
+            })
+        )
     }
 
     /**
@@ -236,7 +279,7 @@ export class RoundState<U> {
      * @param {StartPayload} payload - The payload to start the process with.
      * @returns {void}
      */
-    public start(payload?: StartPayload): void {
+    public start(payload?: StartingPayload<R>): void {
         this._action.next({
             type: 'STARTING',
             payload,
@@ -257,7 +300,7 @@ export class RoundState<U> {
      *
      * @return {void}
      */
-    public lock(payload?: LockPayload): void {
+    public lock(payload?: LockingPayload<R>): void {
         this._action.next({
             type: 'LOCKING',
             payload,
@@ -272,25 +315,32 @@ export class RoundState<U> {
     }
 
     /**
-     * Starts the process of concluding the round to retrieve the round results.
+     * Conclude the round and retrieve result.
      *
-     * @param {Omit<ConcludePayload<any>, 'result'>} [payload] - The payload for the conclude action.
+     * Triggers a concluding action and returns an Observable.
      *
-     * @return {Promise<void>} - A promise that resolves when the conclude action is completed.
+     * @param {ConcludingPayload<unknown>} payload - The payload for the concluding action.
+     * @param {AsyncActionRetry} options - The options for retrying the asynchronous action.
      */
-    public conclude(
-        payload?: Omit<ConcludePayload<unknown>, 'result'>
-    ): Observable<ConcludePayload<unknown>> | undefined {
-        this._action.next({
-            type: 'CONCLUDING',
-            payload,
-        })
-
-        if (this._round.state !== State.Concluding) return
-
-        return of(this._round.onConclude).pipe(
+    public conclude(payload?: ConcludingPayload<R>, options?: AsyncActionRetry) {
+        return of(this._round.onConclude.bind(this._round)).pipe(
+            tap(() =>
+                this._action.next({
+                    type: 'CONCLUDING',
+                    payload,
+                })
+            ),
+            takeWhile(() => this._round.state === State.Concluding),
             concatMap(async (concludePayload) => concludePayload(this._round.metadata)),
-            retry({ count: 3, delay: 1 }),
+            retry({
+                count: options?.retry || 3,
+                delay: (error, retryCount) => {
+                    logger.warn(
+                        `Failed to retrieve round results, retrying... Attempt ${retryCount}/${options?.retry || 3}`
+                    )
+                    return of(error).pipe(delay(options?.delay ? options.delay * 1000 : 0))
+                },
+            }),
             tap({
                 next: (payload) => {
                     this._action.next({
@@ -306,7 +356,8 @@ export class RoundState<U> {
                         },
                     })
                 },
-            })
+            }),
+            catchError(() => of(undefined))
         )
     }
 
@@ -317,7 +368,7 @@ export class RoundState<U> {
      *
      * @return {void} - This method doesn't return a value.
      */
-    public tick(payload: TickPayload): void {
+    public tick(payload: TickPayload<R>): void {
         const _roundPayload = this._round.onTick ? defu(payload, this._round.onTick(this._round.metadata)) : payload
         this._action.next({
             type: 'TICK',
@@ -353,10 +404,10 @@ export class RoundState<U> {
         }
         if (this.engine) this.engine.start(this)
         else {
-            await this.ready()
+            await firstValueFrom(this.ready())
             this.start()
             this.lock()
-            await this.conclude()
+            await firstValueFrom(this.conclude())
         }
     }
 
