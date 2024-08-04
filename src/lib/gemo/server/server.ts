@@ -85,12 +85,14 @@ export interface AnonymousWebSocketData extends WebSocketData<Anonymous> {
 /**
  * Union type for WebSocket data that can either belong to an authenticated user or an anonymous user.
  */
-export type ServerWebSocketData<U> = UserWebSocketData<U> | AnonymousWebSocketData
+export type ServerWebSocketData<U, T extends boolean> = T extends true
+    ? UserWebSocketData<U>
+    : UserWebSocketData<U> | AnonymousWebSocketData
 
 /**
  * Type definition for a WebSocket connection in the Server context, incorporating custom data.
  */
-export type ServerWebSocket<U> = BunServerWebSocket<ServerWebSocketData<U>>
+export type ServerWebSocket<U, T extends boolean = false> = BunServerWebSocket<ServerWebSocketData<U, T>>
 
 /**
  * Interface defining the event map for the Server, specifying the types of events and their payloads.
@@ -168,7 +170,7 @@ export class Server<U = never> extends EventEmitter<ServerEventMap<U>> {
      * @returns The server instance.
      */
     public listen(port = 3000) {
-        return (this.server = Bun.serve<ServerWebSocketData<U>>({
+        return (this.server = Bun.serve<ServerWebSocketData<U, false>>({
             port,
             fetch: this.handleUpgradeRequest.bind(this),
             websocket: {
