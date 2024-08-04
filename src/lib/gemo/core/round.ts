@@ -104,7 +104,7 @@ export abstract class Round<R, B> {
             result: this.result,
         } as RoundValue
 
-        if (this.timer) round.timer = this.timer
+        if (typeof this.timer !== 'undefined') round.timer = this.timer
         if (this.metadata) round.metadata = this.metadata
         if (this.error) round.error = this.error
 
