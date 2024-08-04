@@ -1,8 +1,20 @@
-import { Round, State } from '@/lib/gemo'
+import { createMessage, Round, State } from '@/lib/gemo'
+import type { Bet, UserBet } from '@/types'
+import { BingoCard } from './bingo-card'
 
-export class LuckyBingoRound extends Round<number[]> {
+export class LuckyBingoRound extends Round<Bet, Bet> {
     private numbers: number[] = []
     private drawnNumbers = new Set<number>()
+
+    public onBet(bet: UserBet) {
+        const card = new BingoCard()
+        bet.ws.send(createMessage(201, { card: card.card, cardId: card.id }))
+        return {
+            sessionId: bet.ws.data.sessionId,
+            user: bet.ws.data.user,
+            card,
+        }
+    }
 
     public onReady() {
         this.numbers = Array.from({ length: 75 }, (_, i) => i + 1)
@@ -17,12 +29,18 @@ export class LuckyBingoRound extends Round<number[]> {
 
     public onConclude() {
         const numbers = this._getDrawnNumbers()
+        const result = this.bets?.placed.find((bet) => bet.card.test(numbers, 'blackout'))
         return {
-            result: numbers,
+            result: result ?? null,
             metadata: {
+                draw: numbers,
                 total: numbers.length,
             },
         }
+    }
+
+    public concludeWhen(): boolean {
+        return !!this.bets?.placed.some((bet) => bet.card.test(this._getDrawnNumbers(), 'blackout'))
     }
 
     public onTick() {
@@ -30,7 +48,7 @@ export class LuckyBingoRound extends Round<number[]> {
         const numbers = this._getDrawnNumbers()
         return {
             metadata: {
-                numbers,
+                draw: numbers,
                 total: numbers.length,
             },
         }
