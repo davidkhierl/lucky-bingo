@@ -1,18 +1,19 @@
-import { type OnConclude, type OnLock, type OnReady, type OnStart, type OnTick, State } from '..'
+import type { Promisable } from 'type-fest'
+import { Bets, type OnConclude, type OnLock, type OnReady, type OnStart, type OnTick, State } from '..'
 
 export type RoundMetadata = any
 
 export interface RoundValue {
     id: string
     number: number
-    state: State
+    state: string
     timer?: number
     result?: unknown
     metadata?: RoundMetadata
     error?: string
 }
 
-export abstract class Round<R = unknown> {
+export abstract class Round<R, B> {
     /**
      * Round identifier.
      */
@@ -33,6 +34,8 @@ export abstract class Round<R = unknown> {
      */
     public state: State
 
+    public bets?: Bets<B>
+
     /**
      * Round result.
      */
@@ -52,27 +55,28 @@ export abstract class Round<R = unknown> {
         this.id = id
         this.number = 0
         this.state = State.Idle
+        if (this.onBet) this.bets = new Bets(this.onBet.bind(this))
     }
 
     /**
      * A hook that is called when preparing the round.
      */
-    public onReady?(): OnReady<R>
+    public onReady?(): OnReady<R, B>
 
     /**
      * A hook that is called when starting the round.
      */
-    public onStart?(metadata?: RoundMetadata): OnStart<R>
+    public onStart?(metadata?: RoundMetadata): OnStart<R, B>
 
     /**
      * A hook that is called when locking the round.
      */
-    public onLock?(metadata?: RoundMetadata): OnLock<R>
+    public onLock?(metadata?: RoundMetadata): OnLock<R, B>
 
     /**
      * A hook that is called when concluding the round with result.
      */
-    public abstract onConclude(metadata?: RoundMetadata): OnConclude<R>
+    public abstract onConclude(metadata?: RoundMetadata): OnConclude<R, B>
 
     /**
      * A predicate that determines when the round needs to start concluding.
@@ -82,7 +86,12 @@ export abstract class Round<R = unknown> {
     /**
      * A hook that is called when the round is ticking.
      */
-    public onTick?(metadata?: RoundMetadata): OnTick<R>
+    public onTick?(metadata?: RoundMetadata): OnTick<R, B>
+
+    /**
+     * A hook that is called when a bet is placed.
+     */
+    public onBet?(bet: unknown): Promisable<B>
 
     /**
      * Get the round values.
@@ -91,7 +100,7 @@ export abstract class Round<R = unknown> {
         const round = {
             id: this.id,
             number: this.number,
-            state: this.state,
+            state: State[this.state],
             result: this.result,
         } as RoundValue
 
