@@ -20,7 +20,7 @@ import {
 /**
  * Options for creating a Room.
  */
-export interface RoomOptions<R, U> {
+export interface RoomOptions<R, B, U> {
     /**
      * Name of the room.
      * This is also used as the channel name for the room.
@@ -73,29 +73,29 @@ export interface RoomOptions<R, U> {
     /**
      * Room round.
      */
-    round?: Constructor<Round<R>>
+    round?: Constructor<Round<R, B>>
 
     /**
      * Round engine.
      */
-    engine?: Engine<R, U>
+    engine?: Engine<R, B, U>
 }
 
 /**
  * Room events.
  */
-export interface RoomEventMap<R, U> {
+export interface RoomEventMap<R, B, U> {
     /**
      * Triggered when the room is closed.
      */
-    close: [room: Room<R, U>]
+    close: [room: Room<R, B, U>]
 }
 
 /**
  * The Room class is designed to manage and organize game sessions,
  * handling player and spectator limits, and facilitating events within the game room.
  */
-export class Room<R, U> extends EventEmitter<RoomEventMap<R, U>> {
+export class Room<R, B, U> extends EventEmitter<RoomEventMap<R, B, U>> {
     public readonly id = randomUUID()
     public readonly name: string
     public readonly maxPlayers: number
@@ -107,10 +107,10 @@ export class Room<R, U> extends EventEmitter<RoomEventMap<R, U>> {
     private readonly _server: BunServer
     private readonly _globalCommands?: Commands<U>
     private readonly _ignoreGlobalCommands: boolean
-    private readonly _Round?: Constructor<Round<R>>
-    private readonly _state?: RoundState<R, U>
+    private readonly _Round?: Constructor<Round<R, B>>
+    private readonly _state?: RoundState<R, B, U>
     private readonly _store: Store
-    private readonly _engine?: Engine<R, U>
+    private readonly _engine?: Engine<R, B, U>
     private _closed = false
     private _listeners = new Map<string, (...args: any[]) => void>()
 
@@ -121,7 +121,7 @@ export class Room<R, U> extends EventEmitter<RoomEventMap<R, U>> {
      */
     constructor(
         private readonly server: Server<U>,
-        options: RoomOptions<R, U>
+        options: RoomOptions<R, B, U>
     ) {
         super()
 
