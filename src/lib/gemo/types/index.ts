@@ -32,18 +32,18 @@ export interface Action {
     type: ActionType
 }
 
-export type ActionPayload<R> = Pick<Round<R>, 'timer' | 'metadata'>
-type RoundNumber = Pick<Round, 'number'>
+export type ActionPayload<R, B> = Pick<Round<R, B>, 'timer' | 'metadata'>
+type RoundNumber<R, B> = Pick<Round<R, B>, 'number'>
 
-export type PreparingPayload<R> = ActionPayload<R> & Partial<RoundNumber>
-export type ReadyPayload<R> = ActionPayload<R> & Partial<RoundNumber>
-export type StartingPayload<R> = ActionPayload<R>
-export type StartPayload<R> = ActionPayload<R>
-export type LockingPayload<R> = ActionPayload<R>
-export type LockPayload<R> = ActionPayload<R>
-export type ConcludingPayload<R> = ActionPayload<R>
-export type ConcludePayload<R> = ActionPayload<R> & Pick<Round<R>, 'result'>
-export type TickPayload<R> = ActionPayload<R>
+export type PreparingPayload<R, B> = ActionPayload<R, B> & Partial<RoundNumber<R, B>>
+export type ReadyPayload<R, B> = ActionPayload<R, B> & Partial<RoundNumber<R, B>>
+export type StartingPayload<R, B> = ActionPayload<R, B>
+export type StartPayload<R, B> = ActionPayload<R, B>
+export type LockingPayload<R, B> = ActionPayload<R, B>
+export type LockPayload<R, B> = ActionPayload<R, B>
+export type ConcludingPayload<R, B> = ActionPayload<R, B>
+export type ConcludePayload<R, B> = ActionPayload<R, B> & Pick<Round<R, B>, 'result'>
+export type TickPayload<R, B> = ActionPayload<R, B>
 export type ErrorPayload = { error?: unknown }
 
 export interface PayloadAction<T extends ActionType, P> extends Action {
@@ -51,34 +51,34 @@ export interface PayloadAction<T extends ActionType, P> extends Action {
     payload?: P
 }
 
-export type Preparing<R> = PayloadAction<'PREPARING', PreparingPayload<R>>
-export type Ready<R> = PayloadAction<'READY', ReadyPayload<R>>
-export type Starting<R> = PayloadAction<'STARTING', StartingPayload<R>>
-export type Start<R> = PayloadAction<'START', StartPayload<R>>
-export type Locking<R> = PayloadAction<'LOCKING', LockingPayload<R>>
-export type Lock<R> = PayloadAction<'LOCK', LockPayload<R>>
-export type Concluding<R> = PayloadAction<'CONCLUDING', ConcludingPayload<R>>
-export type Conclude<R> = PayloadAction<'CONCLUDE', ConcludePayload<R>>
-export type Tick<R> = PayloadAction<'TICK', TickPayload<R>>
+export type Preparing<R, B> = PayloadAction<'PREPARING', PreparingPayload<R, B>>
+export type Ready<R, B> = PayloadAction<'READY', ReadyPayload<R, B>>
+export type Starting<R, B> = PayloadAction<'STARTING', StartingPayload<R, B>>
+export type Start<R, B> = PayloadAction<'START', StartPayload<R, B>>
+export type Locking<R, B> = PayloadAction<'LOCKING', LockingPayload<R, B>>
+export type Lock<R, B> = PayloadAction<'LOCK', LockPayload<R, B>>
+export type Concluding<R, B> = PayloadAction<'CONCLUDING', ConcludingPayload<R, B>>
+export type Conclude<R, B> = PayloadAction<'CONCLUDE', ConcludePayload<R, B>>
+export type Tick<R, B> = PayloadAction<'TICK', TickPayload<R, B>>
 export type ErrorRound = PayloadAction<'ERROR', ErrorPayload>
 
-export type StateAction<R> =
-    | Preparing<R>
-    | Ready<R>
-    | Starting<R>
-    | Start<R>
-    | Locking<R>
-    | Lock<R>
-    | Concluding<R>
-    | Conclude<R>
-    | Tick<R>
+export type StateAction<R, B> =
+    | Preparing<R, B>
+    | Ready<R, B>
+    | Starting<R, B>
+    | Start<R, B>
+    | Locking<R, B>
+    | Lock<R, B>
+    | Concluding<R, B>
+    | Conclude<R, B>
+    | Tick<R, B>
     | ErrorRound
 
-export type OnReady<R> = Promisable<ReadyPayload<R> | undefined>
-export type OnStart<R> = Promisable<StartPayload<R> | undefined>
-export type OnLock<R> = Promisable<LockPayload<R> | undefined>
-export type OnConclude<R> = Promisable<ConcludePayload<R>>
-export type OnTick<R> = Promisable<TickPayload<R> | undefined>
+export type OnReady<R, B> = Promisable<ReadyPayload<R, B> | undefined>
+export type OnStart<R, B> = Promisable<StartPayload<R, B> | undefined>
+export type OnLock<R, B> = Promisable<LockPayload<R, B> | undefined>
+export type OnConclude<R, B> = Promisable<ConcludePayload<R, B>>
+export type OnTick<R, B> = Promisable<TickPayload<R, B> | undefined>
 
 export interface AsyncActionRetry {
     retry: number
