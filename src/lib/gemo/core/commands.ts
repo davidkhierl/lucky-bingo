@@ -1,9 +1,8 @@
 import { destr } from 'destr'
 import type { Constructor } from 'type-fest'
-import type { Room, ServerWebSocket } from '..'
+import { Room, type ServerWebSocket, messageCommandSchema } from '..'
 import { logger } from '../utils/logger'
 import type { Command } from './command'
-import { messageCommandSchema } from './schema/message-command-schema'
 
 export class Commands<U> {
     private readonly commands = new Map<number, Command<U>>()
@@ -24,7 +23,7 @@ export class Commands<U> {
         return this.commands.get(code)
     }
 
-    public execute(ws: ServerWebSocket<U>, message: string | Buffer, room: Room<U>): boolean {
+    public execute<R, B>(ws: ServerWebSocket<U>, message: string | Buffer, room: Room<R, B, U>): boolean {
         const code = this.parseMessageCode(message)
         if (!code) return false
 
