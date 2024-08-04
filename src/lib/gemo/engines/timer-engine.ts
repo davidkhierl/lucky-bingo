@@ -26,7 +26,7 @@ export interface TimerEngineOptions {
     onError?: AsyncActionRetry
 }
 
-export class TimerEngine<R, U> implements Engine<R, U> {
+export class TimerEngine<R, B, U> implements Engine<R, B, U> {
     public readonly id = nanoid()
     public readonly duration: number
     public readonly frequency: number
@@ -45,7 +45,7 @@ export class TimerEngine<R, U> implements Engine<R, U> {
         this._onError = options.onError
     }
 
-    public async start(round: RoundState<R, U>) {
+    public async start(round: RoundState<R, B, U>) {
         if (this._signal.closed || this._pause.closed) {
             const error = new GemoError(`Error starting ${TimerEngine.name} ${this.id} already destroyed`)
             logger.error(error.message)
@@ -83,7 +83,7 @@ export class TimerEngine<R, U> implements Engine<R, U> {
             .subscribe())
     }
 
-    private async handleTimer(timer: number, round: RoundState<R, U>) {
+    private async handleTimer(timer: number, round: RoundState<R, B, U>) {
         if (
             round.events.value.state === State.Locked &&
             round.events.value.concludeWhen &&
